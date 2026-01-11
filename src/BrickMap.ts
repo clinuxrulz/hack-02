@@ -14,6 +14,9 @@ const MAX_X_MAX_Y_MIN_Z_NODE_OFFSET = 7;
 const MAX_X_MAX_Y_MAX_Z_NODE_OFFSET = 8;
 const NODE_SIZE = 9; // size in Uint32s
 
+const MAX_DEPTH = 10;
+const RES_XYZ = 1 << (MAX_DEPTH - 1);
+
 let ROOT_BRICK_NODE: BrickMapNode = 0;
 
 export class BrickMap {
@@ -31,6 +34,98 @@ export class BrickMap {
     this.setMaxXminYMaxZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
     this.setMaxXmaxYMinZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
     this.setMaxXmaxYMaxZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
+  }
+
+  set(xIdx: number, yIdx: number, zIdx: number) {
+    this.set2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ);
+  }
+
+  private set2(atNode: BrickMapNode, xIdx: number, yIdx: number, zIdx: number, level: number, res: number) {
+    if (level == MAX_DEPTH) {
+      return;
+    }
+    if (xIdx < 0 || xIdx >= res || yIdx < 0 || yIdx >= res || zIdx < 0 || zIdx >= res) {
+      throw new Error("Out of bounds");
+    }
+    let halfRes = res >> 1;
+    let nextNode: BrickMapNode | undefined;
+    if (xIdx < halfRes) {
+      if (yIdx < halfRes) {
+        if (zIdx < halfRes) {
+          nextNode = this.minXminYMinZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMinXminYMinZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx, yIdx, zIdx, level + 1, halfRes);
+        } else {
+          nextNode = this.minXminYMaxZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMinXminYMaxZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx, yIdx, zIdx - halfRes, level + 1, halfRes);
+        }
+      } else {
+        if (zIdx < halfRes) {
+          nextNode = this.minXmaxYMinZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMinXmaxYMinZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx, yIdx - halfRes, zIdx, level + 1, halfRes);
+        } else {
+          nextNode = this.minXmaxYMaxZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMinXmaxYMaxZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
+        }
+      }
+    } else {
+      if (yIdx < halfRes) {
+        if (zIdx < halfRes) {
+          nextNode = this.maxXminYMinZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMaxXminYMinZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx - halfRes, yIdx, zIdx, level + 1, halfRes);
+        } else {
+          nextNode = this.maxXminYMaxZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMaxXminYMaxZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx - halfRes, yIdx, zIdx - halfRes, level + 1, halfRes);
+        }
+      } else {
+        if (zIdx < halfRes) {
+          nextNode = this.maxXmaxYMinZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMaxXmaxYMinZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx, level + 1, halfRes);
+        } else {
+          nextNode = this.maxXmaxYMaxZNode(atNode);
+          if (nextNode == undefined) {
+            nextNode = this.allocNode();
+            this.setParentNode(nextNode, atNode);
+            this.setMaxXmaxYMaxZNode(atNode, nextNode);
+          }
+          this.set2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
+        }
+      }
+    }
   }
 
   allocNode(): BrickMapNode {
