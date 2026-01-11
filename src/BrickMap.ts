@@ -22,6 +22,7 @@ export class BrickMap {
 
   constructor() {
     // root node
+    this.setParentNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
     this.setMinXminYMinZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
     this.setMinXminYMaxZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
     this.setMinXmaxYMinZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
