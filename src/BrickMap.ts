@@ -48,11 +48,10 @@ export class BrickMap {
       throw new Error("Out of bounds");
     }
     let halfRes = res >> 1;
-    let nextNode: BrickMapNode | undefined;
     if (xIdx < halfRes) {
       if (yIdx < halfRes) {
         if (zIdx < halfRes) {
-          nextNode = this.minXminYMinZNode(atNode);
+          let nextNode = this.minXminYMinZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -60,7 +59,7 @@ export class BrickMap {
           }
           this.set2(nextNode, xIdx, yIdx, zIdx, level + 1, halfRes);
         } else {
-          nextNode = this.minXminYMaxZNode(atNode);
+          let nextNode = this.minXminYMaxZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -70,7 +69,7 @@ export class BrickMap {
         }
       } else {
         if (zIdx < halfRes) {
-          nextNode = this.minXmaxYMinZNode(atNode);
+          let nextNode = this.minXmaxYMinZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -78,7 +77,7 @@ export class BrickMap {
           }
           this.set2(nextNode, xIdx, yIdx - halfRes, zIdx, level + 1, halfRes);
         } else {
-          nextNode = this.minXmaxYMaxZNode(atNode);
+          let nextNode = this.minXmaxYMaxZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -90,7 +89,7 @@ export class BrickMap {
     } else {
       if (yIdx < halfRes) {
         if (zIdx < halfRes) {
-          nextNode = this.maxXminYMinZNode(atNode);
+          let nextNode = this.maxXminYMinZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -98,7 +97,7 @@ export class BrickMap {
           }
           this.set2(nextNode, xIdx - halfRes, yIdx, zIdx, level + 1, halfRes);
         } else {
-          nextNode = this.maxXminYMaxZNode(atNode);
+          let nextNode = this.maxXminYMaxZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -108,7 +107,7 @@ export class BrickMap {
         }
       } else {
         if (zIdx < halfRes) {
-          nextNode = this.maxXmaxYMinZNode(atNode);
+          let nextNode = this.maxXmaxYMinZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -116,7 +115,7 @@ export class BrickMap {
           }
           this.set2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx, level + 1, halfRes);
         } else {
-          nextNode = this.maxXmaxYMaxZNode(atNode);
+          let nextNode = this.maxXmaxYMaxZNode(atNode);
           if (nextNode == undefined) {
             nextNode = this.allocNode();
             this.setParentNode(nextNode, atNode);
@@ -125,6 +124,86 @@ export class BrickMap {
           this.set2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
         }
       }
+    }
+  }
+
+  unset(xIdx: number, yIdx: number, zIdx: number) {
+    this.unset2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ);
+  }
+
+  private unset2(atNode: BrickMapNode, xIdx: number, yIdx: number, zIdx: number, level: number, res: number) {
+    if (level == MAX_DEPTH) {
+      this.freeNode(atNode);
+      return;
+    }
+    if (xIdx < 0 || xIdx >= res || yIdx < 0 || yIdx >= res || zIdx < 0 || zIdx >= res) {
+      throw new Error("Out of bounds");
+    }
+    let halfRes = res >> 1;
+    if (xIdx < halfRes) {
+      if (yIdx < halfRes) {
+        if (zIdx < halfRes) {
+          let nextNode = this.minXminYMinZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx, yIdx, zIdx, level + 1, halfRes);
+          }
+        } else {
+          let nextNode = this.minXminYMaxZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx, yIdx, zIdx - halfRes, level + 1, halfRes);
+          }
+        }
+      } else {
+        if (zIdx < halfRes) {
+          let nextNode = this.minXmaxYMinZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx, yIdx - halfRes, zIdx, level + 1, halfRes);
+          }
+        } else {
+          let nextNode = this.minXmaxYMaxZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
+          }
+        }
+      }
+    } else {
+      if (yIdx < halfRes) {
+        if (zIdx < halfRes) {
+          let nextNode = this.maxXminYMinZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx - halfRes, yIdx, zIdx, level + 1, halfRes);
+          }
+        } else {
+          let nextNode = this.maxXminYMaxZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx - halfRes, yIdx, zIdx - halfRes, level + 1, halfRes);
+          }
+        }
+      } else {
+        if (zIdx < halfRes) {
+          let nextNode = this.maxXmaxYMinZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx, level + 1, halfRes);
+          }
+        } else {
+          let nextNode = this.maxXmaxYMaxZNode(atNode);
+          if (nextNode != undefined) {
+            this.unset2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
+          }
+        }
+      }
+    }
+    if (
+      this.minXminYMinZNode(atNode) == undefined &&
+      this.minXminYMaxZNode(atNode) == undefined &&
+      this.minXmaxYMinZNode(atNode) == undefined &&
+      this.minXmaxYMaxZNode(atNode) == undefined &&
+      this.maxXminYMinZNode(atNode) == undefined &&
+      this.maxXminYMaxZNode(atNode) == undefined &&
+      this.maxXmaxYMinZNode(atNode) == undefined &&
+      this.maxXmaxYMaxZNode(atNode) == undefined
+    ) {
+      this.freeNode(atNode);
     }
   }
 
