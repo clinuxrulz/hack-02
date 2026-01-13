@@ -26,6 +26,14 @@ export class BrickMap {
   nodeFreeIndex: number = NODE_SIZE;
   brickFreeIndex: number = 0;
 
+  get numNodes(): number {
+    return this.nodeFreeIndex / NODE_SIZE;
+  }
+
+  get numBricks(): number {
+    return this.brickFreeIndex;
+  }
+
   set(xIdx: number, yIdx: number, zIdx: number, value: number) {
     this.set2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ, value);
   }
@@ -45,13 +53,14 @@ export class BrickMap {
       }
       if (brick == 0) {
         brick = this.allocBrick();
-        this.bricks[brick] = atNode;
+        this.brickParents[brick - 1] = atNode;
         this.nodes[atNode + childOffset] = brick;
       }
       this.writeToBrick(brick, xIdx & halfResMask, yIdx & halfResMask, zIdx & halfResMask, value);
       if (value === 0) {
         if (this.isBrickEmpty(brick)) {
           this.freeBrick(brick);
+          this.nodes[atNode + childOffset] = 0;
         }
       }
     } else {
@@ -68,6 +77,7 @@ export class BrickMap {
       if (value === 0) {
         if (this.isNodeEmpty(node)) {
           this.freeNode(node);
+          this.nodes[atNode + childOffset] = 0;
         }
       }
     }
@@ -141,16 +151,7 @@ export class BrickMap {
   }
 
   private freeBrick(brick: BrickMapBrick) {
-    {
-      let parent = this.brickParents[brick - 1];
-      if (parent !== 0) {
-        for (let i = 1; i <= 8; ++i) {
-          if (this.nodes[parent + i] === brick) {
-            this.nodes[parent + i] = 0;
-          }
-        }
-      }
-    }
+    this.brickParents[brick - 1] = 0;
     if (this.brickFreeIndex > 1) {
       let parent = this.brickParents[this.brickFreeIndex - 1];
       this.brickParents[brick - 1] = parent;
@@ -164,24 +165,16 @@ export class BrickMap {
           this.nodes[parent + i] = brick;
         }
       }
-      this.brickFreeIndex--;
     }
+    this.brickFreeIndex--;
   }
 
   private freeNode(node: BrickMapNode) {
-    {
-      let parent = this.nodes[node];
-      if (parent !== 0) {
-        for (let i = 1; i <= 8; ++i) {
-          if (this.nodes[parent + i] === node) {
-            this.nodes[parent + i] = 0;
-          }
-        }
-      }
-    }
-    if (this.nodeFreeIndex > (NODE_SIZE << 1)) {
+    this.nodes[node] = 0;
+    if (this.nodeFreeIndex > NODE_SIZE) {
       let offsetSrc = this.nodeFreeIndex - NODE_SIZE;
       let parent = this.nodes[offsetSrc];
+      this.nodes[node] = parent;
       for (let i = 0; i <= 8; ++i) {
         this.nodes[node + i] = this.nodes[offsetSrc + i];
       }
@@ -191,6 +184,7 @@ export class BrickMap {
         }
       }
     }
+    this.nodeFreeIndex -= NODE_SIZE;
   }
 
   private getChildOffset(xIdx: number, yIdx: number, zIdx: number, halfRes: number): number {
