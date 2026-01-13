@@ -1,421 +1,176 @@
-const MAX_BRICK_MAP_STORAGE = 1_000_000;
-
 type BrickMapNode = number;
+type BrickMapBrick = number;
 
-const UNDEFINED_NODE = 0;
-const PARENT_NODE_OFFSET = 0;
-const MIN_X_MIN_Y_MIN_Z_NODE_OFFSET = 1;
-const MIN_X_MIN_Y_MAX_Z_NODE_OFFSET = 2;
-const MIN_X_MAX_Y_MIN_Z_NODE_OFFSET = 3;
-const MIN_X_MAX_Y_MAX_Z_NODE_OFFSET = 4;
-const MAX_X_MIN_Y_MIN_Z_NODE_OFFSET = 5;
-const MAX_X_MIN_Y_MAX_Z_NODE_OFFSET = 6;
-const MAX_X_MAX_Y_MIN_Z_NODE_OFFSET = 7;
-const MAX_X_MAX_Y_MAX_Z_NODE_OFFSET = 8;
-const NODE_SIZE = 9; // size in Uint32s
+/**
+ * size in Uint32s
+ * first is the parent pointer
+ * next 8 are the child pointers
+ */
+const NODE_SIZE = 9;
+
+const MAX_NODES = 100_000;
+const MAX_BRICKS = 10_000;
 
 const MAX_DEPTH = 10;
+const BRICK_DEPTH = 3;
+const STOP_DEPTH = MAX_DEPTH - BRICK_DEPTH;
+const BRICK_DIM = (1 << BRICK_DEPTH);
+const BRICK_SIZE = BRICK_DIM * BRICK_DIM * BRICK_DIM;
 const RES_XYZ = 1 << (MAX_DEPTH - 1);
 
 let ROOT_BRICK_NODE: BrickMapNode = 0;
 
 export class BrickMap {
-  storage: Uint32Array = new Uint32Array(MAX_BRICK_MAP_STORAGE);
-  freeIndex: number = NODE_SIZE;
+  nodes: Uint32Array = new Uint32Array(MAX_NODES * NODE_SIZE);
+  brickParents: Uint32Array = new Uint32Array(MAX_BRICKS);
+  bricks: Uint8Array = new Uint8Array(MAX_BRICKS * BRICK_SIZE);
+  nodeFreeIndex: number = NODE_SIZE;
+  brickFreeIndex: number = 0;
 
-  constructor() {
-    // root node
-    this.setParentNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMinXminYMinZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMinXminYMaxZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMinXmaxYMinZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMinXmaxYMaxZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMaxXminYMinZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMaxXminYMaxZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMaxXmaxYMinZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
-    this.setMaxXmaxYMaxZNode(ROOT_BRICK_NODE, UNDEFINED_NODE);
+  set(xIdx: number, yIdx: number, zIdx: number, value: number) {
+    this.set2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ, value);
   }
 
-  set(xIdx: number, yIdx: number, zIdx: number) {
-    this.set2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ);
-  }
-
-  private set2(atNode: BrickMapNode, xIdx: number, yIdx: number, zIdx: number, level: number, res: number) {
-    if (level == MAX_DEPTH) {
-      return;
-    }
-    if (xIdx < 0 || xIdx >= res || yIdx < 0 || yIdx >= res || zIdx < 0 || zIdx >= res) {
-      throw new Error("Out of bounds");
-    }
+  private set2(atNode: BrickMapNode, xIdx: number, yIdx: number, zIdx: number, level: number, res: number, value: number) {
     let halfRes = res >> 1;
-    if (xIdx < halfRes) {
-      if (yIdx < halfRes) {
-        if (zIdx < halfRes) {
-          let nextNode = this.minXminYMinZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMinXminYMinZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx, yIdx, zIdx, level + 1, halfRes);
-        } else {
-          let nextNode = this.minXminYMaxZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMinXminYMaxZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx, yIdx, zIdx - halfRes, level + 1, halfRes);
-        }
-      } else {
-        if (zIdx < halfRes) {
-          let nextNode = this.minXmaxYMinZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMinXmaxYMinZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx, yIdx - halfRes, zIdx, level + 1, halfRes);
-        } else {
-          let nextNode = this.minXmaxYMaxZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMinXmaxYMaxZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
+    let halfResMask = halfRes - 1;
+    let childOffset = this.getChildOffset(xIdx, yIdx, zIdx, halfRes);
+    if (level == STOP_DEPTH) {
+      let brick: BrickMapBrick = this.nodes[atNode + childOffset];
+      if (brick == 0 && value == 0) {
+        return;
+      }
+      if (brick == 0) {
+        brick = this.allocBrick();
+        this.bricks[brick] = atNode;
+        this.nodes[atNode + childOffset] = brick;
+      }
+      this.writeToBrick(brick, xIdx & halfResMask, yIdx & halfResMask, zIdx & halfResMask, value);
+      if (value === 0) {
+        if (this.isBrickEmpty(brick)) {
+          this.freeBrick(brick);
         }
       }
     } else {
-      if (yIdx < halfRes) {
-        if (zIdx < halfRes) {
-          let nextNode = this.maxXminYMinZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMaxXminYMinZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx - halfRes, yIdx, zIdx, level + 1, halfRes);
-        } else {
-          let nextNode = this.maxXminYMaxZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMaxXminYMaxZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx - halfRes, yIdx, zIdx - halfRes, level + 1, halfRes);
-        }
-      } else {
-        if (zIdx < halfRes) {
-          let nextNode = this.maxXmaxYMinZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMaxXmaxYMinZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx, level + 1, halfRes);
-        } else {
-          let nextNode = this.maxXmaxYMaxZNode(atNode);
-          if (nextNode == undefined) {
-            nextNode = this.allocNode();
-            this.setParentNode(nextNode, atNode);
-            this.setMaxXmaxYMaxZNode(atNode, nextNode);
-          }
-          this.set2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
+      let node: BrickMapNode = this.nodes[atNode + childOffset];
+      if (node == 0 && value == 0) {
+        return;
+      }
+      if (node == 0) {
+        node = this.allocNode();
+        this.nodes[node] = atNode;
+        this.nodes[atNode + childOffset] = node;
+      }
+      this.set2(node, xIdx & halfResMask, yIdx & halfResMask, zIdx & halfResMask, level + 1, halfRes, value);
+      if (value === 0) {
+        if (this.isNodeEmpty(node)) {
+          this.freeNode(node);
         }
       }
     }
   }
 
-  unset(xIdx: number, yIdx: number, zIdx: number) {
-    this.unset2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ);
+  private writeToBrick(brick: BrickMapBrick, x: number, y: number, z: number, value: number) {
+    const localIdx = x + (y * BRICK_DIM) + (z * BRICK_DIM * BRICK_DIM);
+    this.bricks[brick + localIdx] = value;
   }
 
-  private unset2(atNode: BrickMapNode, xIdx: number, yIdx: number, zIdx: number, level: number, res: number) {
-    if (level == MAX_DEPTH) {
-      this.freeNode(atNode);
-      return;
+  private allocBrick(): BrickMapBrick {
+    let brick: BrickMapBrick = this.brickFreeIndex++;
+    this.brickParents[(brick - 1)] = 0;
+    let offset = (brick - 1) * BRICK_SIZE;
+    for (let i = 0; i < BRICK_SIZE; ++i) {
+      this.bricks[offset + i] = 0;
     }
-    if (xIdx < 0 || xIdx >= res || yIdx < 0 || yIdx >= res || zIdx < 0 || zIdx >= res) {
-      throw new Error("Out of bounds");
-    }
-    let halfRes = res >> 1;
-    if (xIdx < halfRes) {
-      if (yIdx < halfRes) {
-        if (zIdx < halfRes) {
-          let nextNode = this.minXminYMinZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx, yIdx, zIdx, level + 1, halfRes);
-          }
-        } else {
-          let nextNode = this.minXminYMaxZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx, yIdx, zIdx - halfRes, level + 1, halfRes);
-          }
-        }
-      } else {
-        if (zIdx < halfRes) {
-          let nextNode = this.minXmaxYMinZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx, yIdx - halfRes, zIdx, level + 1, halfRes);
-          }
-        } else {
-          let nextNode = this.minXmaxYMaxZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
-          }
-        }
-      }
-    } else {
-      if (yIdx < halfRes) {
-        if (zIdx < halfRes) {
-          let nextNode = this.maxXminYMinZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx - halfRes, yIdx, zIdx, level + 1, halfRes);
-          }
-        } else {
-          let nextNode = this.maxXminYMaxZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx - halfRes, yIdx, zIdx - halfRes, level + 1, halfRes);
-          }
-        }
-      } else {
-        if (zIdx < halfRes) {
-          let nextNode = this.maxXmaxYMinZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx, level + 1, halfRes);
-          }
-        } else {
-          let nextNode = this.maxXmaxYMaxZNode(atNode);
-          if (nextNode != undefined) {
-            this.unset2(nextNode, xIdx - halfRes, yIdx - halfRes, zIdx - halfRes, level + 1, halfRes);
-          }
-        }
-      }
-    }
-    if (
-      this.minXminYMinZNode(atNode) == undefined &&
-      this.minXminYMaxZNode(atNode) == undefined &&
-      this.minXmaxYMinZNode(atNode) == undefined &&
-      this.minXmaxYMaxZNode(atNode) == undefined &&
-      this.maxXminYMinZNode(atNode) == undefined &&
-      this.maxXminYMaxZNode(atNode) == undefined &&
-      this.maxXmaxYMinZNode(atNode) == undefined &&
-      this.maxXmaxYMaxZNode(atNode) == undefined
-    ) {
-      this.freeNode(atNode);
-    }
+    return brick;
   }
 
-  allocNode(): BrickMapNode {
-    let node: BrickMapNode = this.freeIndex;
-    this.freeIndex += NODE_SIZE;
-    this.setParentNode(node, UNDEFINED_NODE);
-    this.setMinXminYMinZNode(node, UNDEFINED_NODE);
-    this.setMinXminYMaxZNode(node, UNDEFINED_NODE);
-    this.setMinXmaxYMinZNode(node, UNDEFINED_NODE);
-    this.setMinXmaxYMaxZNode(node, UNDEFINED_NODE);
-    this.setMaxXminYMinZNode(node, UNDEFINED_NODE);
-    this.setMaxXminYMaxZNode(node, UNDEFINED_NODE);
-    this.setMaxXmaxYMinZNode(node, UNDEFINED_NODE);
-    this.setMaxXmaxYMaxZNode(node, UNDEFINED_NODE);
+  private allocNode(): BrickMapNode {
+    let node: BrickMapNode = this.nodeFreeIndex;
+    this.nodeFreeIndex += NODE_SIZE;
+    for (let i = 0; i < NODE_SIZE; ++i) {
+      this.nodes[node + i] = 0;
+    }
     return node;
   }
 
-  freeNode(n: BrickMapNode) {
-    let nParent = this.parentNode(n);
-    if (nParent != undefined) {
-      if (this.minXminYMinZNode(nParent) === n) {
-        this.setMinXminYMinZNode(nParent, undefined);
-      }
-      if (this.minXminYMaxZNode(nParent) === n) {
-        this.setMinXminYMaxZNode(nParent, undefined);
-      }
-      if (this.minXmaxYMinZNode(nParent) === n) {
-        this.setMinXmaxYMinZNode(nParent, undefined);
-      }
-      if (this.minXmaxYMaxZNode(nParent) === n) {
-        this.setMinXmaxYMaxZNode(nParent, undefined);
-      }
-      if (this.maxXminYMinZNode(nParent) === n) {
-        this.setMaxXminYMinZNode(nParent, undefined);
-      }
-      if (this.maxXminYMaxZNode(nParent) === n) {
-        this.setMaxXminYMaxZNode(nParent, undefined);
-      }
-      if (this.maxXmaxYMinZNode(nParent) === n) {
-        this.setMaxXmaxYMinZNode(nParent, undefined);
-      }
-      if (this.maxXmaxYMaxZNode(nParent) === n) {
-        this.setMaxXmaxYMaxZNode(nParent, undefined);
+  private isBrickEmpty(brick: BrickMapBrick): boolean {
+    let offset = (brick - 1) * BRICK_SIZE;
+    for (let i = 0; i < BRICK_SIZE; i++) {
+      if (this.bricks[offset + i] !== 0) {
+        return false;
       }
     }
+    return true;
+  }
+
+  private isNodeEmpty(node: BrickMapNode) {
+    for (let i = 1; i <= 8; ++i) {
+      if (this.nodes[node + i] !== 0) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private freeBrick(brick: BrickMapBrick) {
     {
-      let child = this.minXminYMinZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
+      let parent = this.brickParents[brick - 1];
+      if (parent !== 0) {
+        for (let i = 1; i <= 8; ++i) {
+          if (this.nodes[parent + i] === brick) {
+            this.nodes[parent + i] = 0;
+          }
+        }
       }
     }
+    if (this.brickFreeIndex > 1) {
+      let parent = this.brickParents[this.brickFreeIndex - 1];
+      this.brickParents[brick - 1] = parent;
+      let offsetDst = (brick - 1) * BRICK_SIZE;
+      let offsetSrc = (this.brickFreeIndex - 1) * BRICK_SIZE;
+      for (let i = 0; i < BRICK_SIZE; ++i) {
+        this.bricks[offsetDst + i] = this.bricks[offsetSrc + i];
+      }
+      for (let i = 1; i <= 8; ++i) {
+        if (this.nodes[parent + i] == this.brickFreeIndex) {
+          this.nodes[parent + i] = brick;
+        }
+      }
+      this.brickFreeIndex--;
+    }
+  }
+
+  private freeNode(node: BrickMapNode) {
     {
-      let child = this.minXminYMaxZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
+      let parent = this.nodes[node];
+      if (parent !== 0) {
+        for (let i = 1; i <= 8; ++i) {
+          if (this.nodes[parent + i] === node) {
+            this.nodes[parent + i] = 0;
+          }
+        }
       }
     }
-    {
-      let child = this.minXmaxYMinZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
+    if (this.nodeFreeIndex > (NODE_SIZE << 1)) {
+      let offsetSrc = this.nodeFreeIndex - NODE_SIZE;
+      let parent = this.nodes[offsetSrc];
+      for (let i = 0; i <= 8; ++i) {
+        this.nodes[node + i] = this.nodes[offsetSrc + i];
+      }
+      for (let i = 1; i <= 8; ++i) {
+        if (this.nodes[parent + i] === offsetSrc) {
+          this.nodes[parent + i] = node;
+        }
       }
     }
-    {
-      let child = this.minXmaxYMaxZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
-      }
-    }
-    {
-      let child = this.maxXminYMinZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
-      }
-    }
-    {
-      let child = this.maxXminYMaxZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
-      }
-    }
-    {
-      let child = this.maxXmaxYMinZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
-      }
-    }
-    {
-      let child = this.maxXmaxYMaxZNode(n);
-      if (child != undefined) {
-        this.freeNode(child);
-      }
-    }
-    let lastNode = this.freeIndex - NODE_SIZE;
-    let lastNodeParent = this.parentNode(lastNode);
-    this.setParentNode(n, lastNodeParent);
-    this.setMinXminYMinZNode(n, this.minXminYMinZNode(lastNode));
-    this.setMinXminYMaxZNode(n, this.minXminYMaxZNode(lastNode));
-    this.setMinXmaxYMinZNode(n, this.minXmaxYMinZNode(lastNode));
-    this.setMinXmaxYMaxZNode(n, this.minXmaxYMaxZNode(lastNode));
-    this.setMaxXminYMinZNode(n, this.maxXminYMinZNode(lastNode));
-    this.setMaxXminYMaxZNode(n, this.maxXminYMaxZNode(lastNode));
-    this.setMaxXmaxYMinZNode(n, this.maxXmaxYMinZNode(lastNode));
-    this.setMaxXmaxYMaxZNode(n, this.maxXmaxYMaxZNode(lastNode));
-    if (lastNodeParent != undefined) {
-      if (this.minXminYMinZNode(lastNodeParent) === lastNode) {
-        this.setMinXminYMinZNode(lastNodeParent, n);
-      }
-      if (this.minXminYMaxZNode(lastNodeParent) === lastNode) {
-        this.setMinXminYMaxZNode(lastNodeParent, n);
-      }
-      if (this.minXmaxYMinZNode(lastNodeParent) === lastNode) {
-        this.setMinXmaxYMinZNode(lastNodeParent, n);
-      }
-      if (this.minXmaxYMaxZNode(lastNodeParent) === lastNode) {
-        this.setMinXmaxYMaxZNode(lastNodeParent, n);
-      }
-      if (this.maxXminYMinZNode(lastNodeParent) === lastNode) {
-        this.setMaxXminYMinZNode(lastNodeParent, n);
-      }
-      if (this.maxXminYMaxZNode(lastNodeParent) === lastNode) {
-        this.setMaxXminYMaxZNode(lastNodeParent, n);
-      }
-      if (this.maxXmaxYMinZNode(lastNodeParent) === lastNode) {
-        this.setMaxXmaxYMinZNode(lastNodeParent, n);
-      }
-      if (this.maxXmaxYMaxZNode(lastNodeParent) === lastNode) {
-        this.setMaxXmaxYMaxZNode(lastNodeParent, n);
-      }
-    }
-    this.freeIndex -= NODE_SIZE;
   }
 
-  parentNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + PARENT_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  minXminYMinZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MIN_X_MIN_Y_MIN_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  minXminYMaxZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MIN_X_MIN_Y_MAX_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  minXmaxYMinZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MIN_X_MAX_Y_MIN_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  minXmaxYMaxZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MIN_X_MAX_Y_MAX_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  maxXminYMinZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MAX_X_MIN_Y_MIN_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  maxXminYMaxZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MAX_X_MIN_Y_MAX_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  maxXmaxYMinZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MAX_X_MAX_Y_MIN_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  maxXmaxYMaxZNode(n: BrickMapNode): BrickMapNode | undefined {
-    let result = this.storage[n + MAX_X_MAX_Y_MAX_Z_NODE_OFFSET];
-    return result == UNDEFINED_NODE ? undefined : result;
-  }
-
-  setParentNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + PARENT_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMinXminYMinZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MIN_X_MIN_Y_MIN_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMinXminYMaxZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MIN_X_MIN_Y_MAX_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMinXmaxYMinZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MIN_X_MAX_Y_MIN_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMinXmaxYMaxZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MIN_X_MAX_Y_MAX_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMaxXminYMinZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MAX_X_MIN_Y_MIN_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMaxXminYMaxZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MAX_X_MIN_Y_MAX_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMaxXmaxYMinZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MAX_X_MAX_Y_MIN_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
-  }
-
-  setMaxXmaxYMaxZNode(n: BrickMapNode, rhs: BrickMapNode | undefined) {
-    this.storage[n + MAX_X_MAX_Y_MAX_Z_NODE_OFFSET] = rhs ?? UNDEFINED_NODE;
+  private getChildOffset(xIdx: number, yIdx: number, zIdx: number, halfRes: number): number {
+    let off = 1;
+    if (xIdx >= halfRes) off += 4;
+    if (yIdx >= halfRes) off += 2;
+    if (zIdx >= halfRes) off += 1;
+    return off;
   }
 }
