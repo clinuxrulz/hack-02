@@ -194,4 +194,76 @@ export class BrickMap {
     if (zIdx >= halfRes) off += 1;
     return off;
   }
+
+  writeShaderCode(): string {
+    return (
+`#version 300 es
+
+layout(std140, binding = 0) uniform Nodes {
+  uint nodes[${MAX_NODES * NODE_SIZE}]
+};
+
+layout(std140, binding = 1) uniform Bricks {
+  uint bricks[${MAX_BRICKS * BRICK_SIZE}]
+};
+
+uint read_brick_map(uivec3 p) {
+  uint res = ${RES_XYZ};
+  uint at_node = 0;
+  for (uint level = 0; level < ${MAX_DEPTH - BRICK_DEPTH}; ++level) {
+    uint half_res = res >> 1;
+    uint half_res_mask = half_res - 1;
+    uint child_offset = get_child_offset(p, half_res);
+    if (half_res == ${BRICK_DIM}) {
+      uint brick = this.nodes[at_node + child_offset];
+      if (brick == 0) {
+        return 0;
+      }
+      return read_from_brick(
+        brick,
+        uivec3(
+          p.x & half_res_mask,
+          p.y & half_res_mask,
+          p.z & half_res_mask
+        )
+      );
+    } else {
+      let node = nodes[at_node + child_offset];
+      if (node == 0) {
+        return 0;
+      }
+      // tail recursion next params
+      at_node = node;
+      p = uivec3(
+        p.x & half_res_mask,
+        p.y & half_res_mask,
+        p.z & half_res_mask
+      );
+      res = half_res;
+    }
+  }
+  return 0;
+}
+
+uint get_child_offset(uivec3 p, uint half_res) {
+  uint32 offset = 1;
+  if (p.x >= half_res) {
+    offset += 4;
+  }
+  if (p.y >= half_res) {
+    offset += 2;
+  }
+  if (p.z >= half_res) {
+    offset += 1;
+  }
+  return offset;
+}
+
+uint read_from_brick(uint brick, uivec3 p) {
+  uint local_idx = p.x + (p.y * ${BRICK_DIM}) + (p.z * ${BRICK_DIM * BRICK_DIM});
+  return bricks[(brick - 1) * ${BRICK_SIZE} + local_idx];
+}
+`
+    );
+  }
 }
