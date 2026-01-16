@@ -20,11 +20,11 @@ const RES_XYZ = 1 << (MAX_DEPTH - 1);
 let ROOT_BRICK_NODE: BrickMapNode = 0;
 
 export class BrickMap {
-  nodes: Uint32Array = new Uint32Array(MAX_NODES * NODE_SIZE);
-  brickParents: Uint32Array = new Uint32Array(MAX_BRICKS);
-  bricks: Uint8Array = new Uint8Array(MAX_BRICKS * BRICK_SIZE);
-  nodeFreeIndex: number = NODE_SIZE;
-  brickFreeIndex: number = 0;
+  private nodes: Uint32Array = new Uint32Array(MAX_NODES * NODE_SIZE);
+  private brickParents: Uint32Array = new Uint32Array(MAX_BRICKS);
+  private bricks: Uint8Array = new Uint8Array(MAX_BRICKS * BRICK_SIZE);
+  private nodeFreeIndex: number = NODE_SIZE;
+  private brickFreeIndex: number = 0;
 
   get numNodes(): number {
     return this.nodeFreeIndex / NODE_SIZE;
@@ -197,44 +197,61 @@ export class BrickMap {
 
   writeShaderCode(): string {
     return (
-`#version 300 es
-
-layout(std140, binding = 0) uniform Nodes {
-  uint nodes[${MAX_NODES * NODE_SIZE}]
+`layout(std140) uniform Nodes {
+  uint nodes[${MAX_NODES * NODE_SIZE}];
 };
 
-layout(std140, binding = 1) uniform Bricks {
-  uint bricks[${MAX_BRICKS * BRICK_SIZE}]
+layout(std140) uniform Bricks {
+  uint bricks[${MAX_BRICKS * BRICK_SIZE}];
 };
 
-uint read_brick_map(uivec3 p) {
-  uint res = ${RES_XYZ};
-  uint at_node = 0;
-  for (uint level = 0; level < ${MAX_DEPTH - BRICK_DEPTH}; ++level) {
-    uint half_res = res >> 1;
-    uint half_res_mask = half_res - 1;
+uint get_child_offset(uvec3 p, uint half_res) {
+  uint offset = 1u;
+  if (p.x >= half_res) {
+    offset += 4u;
+  }
+  if (p.y >= half_res) {
+    offset += 2u;
+  }
+  if (p.z >= half_res) {
+    offset += 1u;
+  }
+  return offset;
+}
+
+uint read_from_brick(uint brick, uvec3 p) {
+  uint local_idx = p.x + (p.y * ${BRICK_DIM}u) + (p.z * ${BRICK_DIM * BRICK_DIM}u);
+  return bricks[(brick - 1u) * ${BRICK_SIZE}u + local_idx];
+}
+
+uint read_brick_map(uvec3 p) {
+  uint res = ${RES_XYZ}u;
+  uint at_node = 0u;
+  for (uint level = 0u; level < ${MAX_DEPTH - BRICK_DEPTH}u; ++level) {
+    uint half_res = res >> 1u;
+    uint half_res_mask = half_res - 1u;
     uint child_offset = get_child_offset(p, half_res);
-    if (half_res == ${BRICK_DIM}) {
-      uint brick = this.nodes[at_node + child_offset];
-      if (brick == 0) {
-        return 0;
+    if (half_res == ${BRICK_DIM}u) {
+      uint brick = nodes[at_node + child_offset];
+      if (brick == 0u) {
+        return 0u;
       }
       return read_from_brick(
         brick,
-        uivec3(
+        uvec3(
           p.x & half_res_mask,
           p.y & half_res_mask,
           p.z & half_res_mask
         )
       );
     } else {
-      let node = nodes[at_node + child_offset];
-      if (node == 0) {
-        return 0;
+      uint node = nodes[at_node + child_offset];
+      if (node == 0u) {
+        return 0u;
       }
       // tail recursion next params
       at_node = node;
-      p = uivec3(
+      p = uvec3(
         p.x & half_res_mask,
         p.y & half_res_mask,
         p.z & half_res_mask
@@ -242,26 +259,7 @@ uint read_brick_map(uivec3 p) {
       res = half_res;
     }
   }
-  return 0;
-}
-
-uint get_child_offset(uivec3 p, uint half_res) {
-  uint32 offset = 1;
-  if (p.x >= half_res) {
-    offset += 4;
-  }
-  if (p.y >= half_res) {
-    offset += 2;
-  }
-  if (p.z >= half_res) {
-    offset += 1;
-  }
-  return offset;
-}
-
-uint read_from_brick(uint brick, uivec3 p) {
-  uint local_idx = p.x + (p.y * ${BRICK_DIM}) + (p.z * ${BRICK_DIM * BRICK_DIM});
-  return bricks[(brick - 1) * ${BRICK_SIZE} + local_idx];
+  return 0u;
 }
 `
     );
