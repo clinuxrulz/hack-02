@@ -8,7 +8,7 @@ type BrickMapBrick = number;
  */
 const NODE_SIZE = 9;
 
-const TEXTURE_RES = 512;
+const TEXTURE_RES = 256;
 
 const MAX_NODES = 100_000;
 const MAX_BRICKS = 10_000;
@@ -27,8 +27,6 @@ export class BrickMap {
   private bricks: Uint32Array = new Uint32Array(MAX_BRICKS * BRICK_SIZE);
   private nodeFreeIndex: number = NODE_SIZE;
   private brickFreeIndex: number = 0;
-  private nodes_byteView = new Uint8Array(this.nodes.buffer);
-  private bricks_byteView = new Uint8Array(this.bricks.buffer);
 
   get numNodes(): number {
     return this.nodeFreeIndex / NODE_SIZE;
@@ -213,13 +211,13 @@ export class BrickMap {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA,
+      gl.RGBA32UI,
       TEXTURE_RES,
       TEXTURE_RES,
       0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      this.nodes_byteView,
+      gl.RGBA_INTEGER,
+      gl.UNSIGNED_INT,
+      this.nodes,
     );
     gl.activeTexture(gl.TEXTURE1);
     let bricksTexture = gl.createTexture();
@@ -227,13 +225,13 @@ export class BrickMap {
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
-      gl.RGBA,
+      gl.RGBA32UI,
       TEXTURE_RES,
       TEXTURE_RES,
       0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      this.bricks_byteView,
+      gl.RGBA_INTEGER,
+      gl.UNSIGNED_INT,
+      this.bricks,
     );
   }
 

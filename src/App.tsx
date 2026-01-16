@@ -1,10 +1,18 @@
 import { createComputed, createSignal, on, onCleanup, onMount, type Component } from 'solid-js';
 import { BrickMap } from './BrickMap';
 
+const FOV_Y = 50.0;
+
 const App: Component = () => {
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ gl, setGl, ] = createSignal<WebGL2RenderingContext>();
   let brickMap = new BrickMap();
+  let quadVertices = new Float32Array(12);
+  let quadVerticesBuffer: WebGLBuffer | undefined = undefined;
+  let positionLocation: number | undefined = undefined;
+  let resolutionLocation: WebGLUniformLocation | null | undefined = undefined;
+  let focalLengthLocation: WebGLUniformLocation | null | undefined = undefined;
+  let modelViewMatrixLocation: WebGLUniformLocation | null | undefined = undefined;
   // test data
   for (let i = -1; i <= 1; i += 2) {
     for (let j = -1; j <= 1; j += 2) {
@@ -20,6 +28,109 @@ const App: Component = () => {
   }
   //
   let brickMapShaderCode = brickMap.writeShaderCode();
+  let updateQuad = () => {
+    let canvas2 = canvas();
+    if (canvas2 == undefined) {
+      return;
+    }
+    let gl2 = gl();
+    if (gl2 == undefined) {
+      return;
+    }
+    if (quadVerticesBuffer === undefined) {
+      return;
+    }
+    if (positionLocation === undefined) {
+      return;
+    }
+    if (resolutionLocation === undefined) {
+      return;
+    }
+    if (focalLengthLocation === undefined) {
+      return;
+    }
+    if (modelViewMatrixLocation === undefined) {
+      return;
+    }
+    let width = canvas2.width;
+    let height = canvas2.height;
+    const focalLength = 0.5 * height / Math.tan(0.5 * FOV_Y * Math.PI / 180.0);
+    quadVertices[0] = 0.0;
+    quadVertices[1] = 0.0;
+    quadVertices[2] = width;
+    quadVertices[3] = 0.0;
+    quadVertices[4] = width;
+    quadVertices[5] = height;
+    quadVertices[6] = 0.0;
+    quadVertices[7] = 0.0;
+    quadVertices[8] = width;
+    quadVertices[9] = height;
+    quadVertices[10] = 0.0;
+    quadVertices[11] = height;
+    gl2.enableVertexAttribArray(positionLocation);
+    gl2.bindBuffer(gl2.ARRAY_BUFFER, quadVerticesBuffer);
+    gl2.bufferData(gl2.ARRAY_BUFFER, quadVertices, gl2.DYNAMIC_DRAW);
+    gl2.vertexAttribPointer(
+      positionLocation,
+      2,
+      gl2.FLOAT,
+      false,
+      0,
+      0,
+    );
+    gl2.disableVertexAttribArray(positionLocation);
+    function createOrtho2D(left: number, right: number, bottom: number, top: number) {
+        var near = -1, far = 1, rl = right-left, tb = top-bottom, fn = far-near;
+        return [        2/rl,               0,              0,  0,
+                          0,             2/tb,              0,  0,
+                          0,                0,          -2/fn,  0,
+            -(right+left)/rl, -(top+bottom)/tb, -(far+near)/fn,  1];
+    }
+    const modelViewMatrix = new Float32Array(
+      createOrtho2D(
+        0.0,
+        width,
+        0.0,
+        height,
+      ),
+    );
+    gl2.uniform2f(resolutionLocation, width, height);
+    gl2.uniform1f(focalLengthLocation, focalLength);
+    gl2.uniformMatrix4fv(
+      modelViewMatrixLocation,
+      false,
+      modelViewMatrix,
+    );
+    gl2.viewport(0, 0, width, height);
+    rerender();
+  };
+  let rerender: () => void;
+  {
+    let aboutToRender = false;
+    rerender = () => {
+      let gl2 = gl();
+      if (gl2 == undefined) {
+        return;
+      }
+      if (aboutToRender) {
+        return;
+      }
+      aboutToRender = true;
+      requestAnimationFrame(() => {
+        if (quadVerticesBuffer === undefined) {
+          return;
+        }
+        if (positionLocation === undefined) {
+          return;
+        }
+        aboutToRender = false;
+        gl2.enableVertexAttribArray(positionLocation);
+        gl2.bindBuffer(gl2.ARRAY_BUFFER, quadVerticesBuffer);
+        gl2.drawArrays(gl2.TRIANGLES, 0, 6);
+        gl2.disableVertexAttribArray(positionLocation);
+      });
+    };
+  }
   onMount(on(
     canvas,
     (canvas) => {
@@ -30,6 +141,7 @@ const App: Component = () => {
         let rect = canvas.getBoundingClientRect();
         canvas.width = rect.width * window.devicePixelRatio;
         canvas.height = rect.height * window.devicePixelRatio;
+        updateQuad();
       });
       resizeObserver.observe(canvas);
       onCleanup(() => {
@@ -78,15 +190,31 @@ precision highp float;
 precision highp int;
 precision highp usampler2D;
 
+uniform vec2 resolution;
+uniform float uFocalLength;
+
 out vec4 fragColour;
 
 ${brickMapShaderCode}
 
 void main(void) {
+  float fl = uFocalLength;
+  float mx = max(resolution.x, resolution.y);
+  vec2 uv = gl_FragCoord.xy / mx;
+  vec3 w = normalize(vec3(0.0, 0.0, 1.0));
+  vec3 u = normalize(cross(vec3(0,1,0),w));
+  vec3 v = cross(w,u);
+  vec3 ro = vec3(0.0);
+  vec3 rd = normalize(
+    (gl_FragCoord.x - 0.5 * resolution.x) * u +
+    (gl_FragCoord.y - 0.5 * resolution.y) * v +
+    -fl * w
+  );
+  vec2 st = gl_FragCoord.xy / 400.0; 
   fragColour = vec4(
     float(read_brick_map(uvec3(512,512,512))) / 255.0,
-    0.0,
-    0.0,
+    st.x,
+    st.y,
     1.0
   );
 }
@@ -119,6 +247,12 @@ void main(void) {
       }
       gl.useProgram(shaderProgram);
       brickMap.initTextures(gl, shaderProgram);
+      positionLocation = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+      resolutionLocation = gl.getUniformLocation(shaderProgram, "resolution");
+      focalLengthLocation = gl.getUniformLocation(shaderProgram, "uFocalLength");
+      modelViewMatrixLocation = gl.getUniformLocation(shaderProgram, "uModelViewMatrix");
+      quadVerticesBuffer = gl.createBuffer();
+      updateQuad();
     },
   ));
   return (
