@@ -78,9 +78,17 @@ precision highp float;
 precision highp int;
 precision highp usampler2D;
 
+out vec4 fragColour;
+
 ${brickMapShaderCode}
 
 void main(void) {
+  fragColour = vec4(
+    float(read_brick_map(uvec3(512,512,512))) / 255.0,
+    0.0,
+    0.0,
+    1.0
+  );
 }
       `;
       console.log(
@@ -109,6 +117,8 @@ void main(void) {
         gl.deleteProgram(shaderProgram)
         return undefined;
       }
+      gl.useProgram(shaderProgram);
+      brickMap.initTextures(gl, shaderProgram);
     },
   ));
   return (

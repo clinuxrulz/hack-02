@@ -8,7 +8,7 @@ type BrickMapBrick = number;
  */
 const NODE_SIZE = 9;
 
-const TEXTURE_RES = 2048;
+const TEXTURE_RES = 512;
 
 const MAX_NODES = 100_000;
 const MAX_BRICKS = 10_000;
@@ -24,9 +24,11 @@ let ROOT_BRICK_NODE: BrickMapNode = 0;
 export class BrickMap {
   private nodes: Uint32Array = new Uint32Array(MAX_NODES * NODE_SIZE);
   private brickParents: Uint32Array = new Uint32Array(MAX_BRICKS);
-  private bricks: Uint8Array = new Uint8Array(MAX_BRICKS * BRICK_SIZE);
+  private bricks: Uint32Array = new Uint32Array(MAX_BRICKS * BRICK_SIZE);
   private nodeFreeIndex: number = NODE_SIZE;
   private brickFreeIndex: number = 0;
+  private nodes_byteView = new Uint8Array(this.nodes.buffer);
+  private bricks_byteView = new Uint8Array(this.bricks.buffer);
 
   get numNodes(): number {
     return this.nodeFreeIndex / NODE_SIZE;
@@ -195,6 +197,50 @@ export class BrickMap {
     if (yIdx >= halfRes) off += 2;
     if (zIdx >= halfRes) off += 1;
     return off;
+  }
+
+  initTextures(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+  ) {
+    let uNodesTex = gl.getUniformLocation(program, "uNodesTex");
+    if (uNodesTex == null) {
+      return;
+    }
+    let uBricksTex = gl.getUniformLocation(program, "uBricksTex");
+    if (uBricksTex == null) {
+      return;
+    }
+    gl.uniform1i(uNodesTex, 0);
+    gl.uniform1i(uBricksTex, 1);
+    gl.activeTexture(gl.TEXTURE0);
+    let nodesTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, nodesTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      TEXTURE_RES,
+      TEXTURE_RES,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this.nodes_byteView,
+    );
+    gl.activeTexture(gl.TEXTURE1);
+    let bricksTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, bricksTexture);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      TEXTURE_RES,
+      TEXTURE_RES,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this.bricks_byteView,
+    );
   }
 
   writeShaderCode(): string {
