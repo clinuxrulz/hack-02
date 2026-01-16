@@ -204,13 +204,7 @@ export class BrickMap {
     program: WebGLProgram,
   ) {
     let uNodesTex = gl.getUniformLocation(program, "uNodesTex");
-    if (uNodesTex == null) {
-      return;
-    }
     let uBricksTex = gl.getUniformLocation(program, "uBricksTex");
-    if (uBricksTex == null) {
-      return;
-    }
     gl.uniform1i(uNodesTex, 0);
     gl.uniform1i(uBricksTex, 1);
     gl.activeTexture(gl.TEXTURE0);
