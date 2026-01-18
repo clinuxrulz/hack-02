@@ -126,6 +126,56 @@ export class BrickMapV2 {
     this.bricksEnd -= BRICK_SIZE;
   }
 
+  initTextures(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+  ): {
+    brickMapTexture: WebGLTexture,
+  } {
+    let uBrickMapTex = gl.getUniformLocation(program, "uBrickMapTex");
+    gl.uniform1i(uBrickMapTex, 0);
+    gl.activeTexture(gl.TEXTURE0);
+    let brickMapTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, brickMapTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA32UI,
+      TEXTURE_RES,
+      TEXTURE_RES,
+      0,
+      gl.RGBA_INTEGER,
+      gl.UNSIGNED_INT,
+      this.data,
+    );
+    return {
+      brickMapTexture,
+    };
+  }
+
+  updateTextures(
+    gl: WebGL2RenderingContext,
+    brickMapTexture: WebGLTexture,
+  ) {
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, brickMapTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA32UI,
+      TEXTURE_RES,
+      TEXTURE_RES,
+      0,
+      gl.RGBA_INTEGER,
+      gl.UNSIGNED_INT,
+      this.data,
+    );
+  }
+
   writeShaderCode(): string {
     return (
 `uniform usampler2D uBrickMapTex;
