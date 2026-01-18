@@ -80,6 +80,18 @@ export class BrickMapV2 {
       (lowYIdx << LOW_LEVEL_RES_BITS) +
       lowXIdx;
     this.data[offset + lowIdx] = value;
+    if (value == 0) {
+      let allZero = true;
+      for (let i = 0; i < BRICK_SIZE; ++i) {
+        if (this.data[offset + i] != 0) {
+          allZero = false;
+          break;
+        }
+      }
+      if (allZero) {
+        this.freeBrick(offset);
+      }
+    }
   }
 
   private allocBrick(): number {
