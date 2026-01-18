@@ -90,4 +90,23 @@ export class BrickMapV2 {
     }
     return brick;
   }
+
+  private freeBrick(brick: number) {
+    {
+      let parent = this.data[brick];
+      this.data[parent] = 0;
+    }
+    if (this.bricksEnd > START_BRICKS_OFFSET + BRICK_SIZE) {
+      let srcIdx = this.bricksEnd - BRICK_SIZE;
+      let dstIdx = brick;
+      if (srcIdx != dstIdx) {
+        for (let i = 0; i < BRICK_SIZE; ++i) {
+          this.data[dstIdx + i] = this.data[srcIdx + i];
+        }
+        let parent = this.data[dstIdx];
+        this.data[parent] = dstIdx;
+      }
+    }
+    this.bricksEnd -= BRICK_SIZE;
+  }
 }
