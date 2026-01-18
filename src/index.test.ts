@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
 import Prando from "prando";
 import { BrickMap } from "./BrickMap";
+import { BrickMapV2 } from "./BrickMapV2";
 
 describe("BrickMap", () => {
   it("should read back the same values that were written", () => {
-    let brickMap = new BrickMap();
+    let brickMap = new BrickMapV2();
     let rng = new Prando(12345);
     let pts: [ number, number, number, number, ][] = [];
     for (let i = 0; i < 50; ++i) {

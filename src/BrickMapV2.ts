@@ -67,7 +67,7 @@ export class BrickMapV2 {
       (hiYIdx << HIGH_LEVEL_RES_BITS) +
       hiXIdx;
     let offset = this.data[hiIdx];
-    if (offset = 0) {
+    if (offset == 0) {
       offset = this.allocBrick();
       this.data[hiIdx] = offset;
       this.data[offset] = hiIdx;
