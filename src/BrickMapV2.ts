@@ -13,7 +13,8 @@ const TEXTURE_RES = (1 << TEXTURE_RES_BITS);
 const TEXTURE_RES_MASK = 1 - TEXTURE_RES;
 
 const START_BRICKS_OFFSET = HIGH_LEVEL_RES * HIGH_LEVEL_RES * HIGH_LEVEL_RES;
-const BRICK_SIZE = LOW_LEVEL_RES * LOW_LEVEL_RES * LOW_LEVEL_RES;
+// +1 for parent reference
+const BRICK_SIZE = 1 + LOW_LEVEL_RES * LOW_LEVEL_RES * LOW_LEVEL_RES;
 
 const VOXEL_SIZE = 10.0;
 
@@ -48,5 +49,45 @@ export class BrickMapV2 {
       (lowYIdx << LOW_LEVEL_RES_BITS) +
       lowXIdx;
     return this.data[offset + lowIdx];
+  }
+
+  set(xIdx: number, yIdx: number, zIdx: number, value: number) {
+    if (
+      xIdx < 0 || xIdx >= COMBINED_RES ||
+      yIdx < 0 || yIdx >= COMBINED_RES ||
+      zIdx < 0 || zIdx >= COMBINED_RES
+    ) {
+      return;
+    }
+    let hiXIdx = xIdx >> HIGH_LEVEL_RES_BITS;
+    let hiYIdx = yIdx >> HIGH_LEVEL_RES_BITS;
+    let hiZIdx = zIdx >> HIGH_LEVEL_RES_BITS;
+    let hiIdx =
+      (hiZIdx << (HIGH_LEVEL_RES_BITS << 1)) +
+      (hiYIdx << HIGH_LEVEL_RES_BITS) +
+      hiXIdx;
+    let offset = this.data[hiIdx];
+    if (offset = 0) {
+      offset = this.allocBrick();
+      this.data[hiIdx] = offset;
+      this.data[offset] = hiIdx;
+    }
+    let lowXIdx = xIdx & LOW_LEVEL_RES_MASK;
+    let lowYIdx = yIdx & LOW_LEVEL_RES_MASK;
+    let lowZIdx = zIdx & LOW_LEVEL_RES_MASK;
+    let lowIdx =
+      (lowZIdx << (LOW_LEVEL_RES_BITS << 1)) +
+      (lowYIdx << LOW_LEVEL_RES_BITS) +
+      lowXIdx;
+    this.data[offset + lowIdx] = value;
+  }
+
+  private allocBrick(): number {
+    let brick = this.bricksEnd;
+    this.bricksEnd += BRICK_SIZE;
+    for (let i = 0; i < BRICK_SIZE; ++i) {
+      this.data[brick + i] = 0;
+    }
+    return brick;
   }
 }
