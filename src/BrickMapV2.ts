@@ -21,6 +21,10 @@ const VOXEL_SIZE = 10.0;
 export class BrickMapV2 {
   private data: Uint32Array = new Uint32Array(TEXTURE_RES * TEXTURE_RES);
   private bricksEnd = START_BRICKS_OFFSET;
+  
+  get numBricks() {
+    return (this.bricksEnd - START_BRICKS_OFFSET) / BRICK_SIZE;
+  }
 
   get(xIdx: number, yIdx: number, zIdx: number): number {
     if (
@@ -82,7 +86,7 @@ export class BrickMapV2 {
     this.data[offset + lowIdx] = value;
     if (value == 0) {
       let allZero = true;
-      for (let i = 0; i < BRICK_SIZE; ++i) {
+      for (let i = 1; i < BRICK_SIZE; ++i) {
         if (this.data[offset + i] != 0) {
           allZero = false;
           break;
