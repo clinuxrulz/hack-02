@@ -16,7 +16,6 @@ const App: Component = () => {
   let brickMapTexture: WebGLTexture | undefined = undefined;
   let angleLocation: WebGLUniformLocation | null | undefined = undefined;
   // test data
-  /*
   function test_sdf(x: number, y: number, z: number) {
     let dx = x;
     let dy = y;
@@ -42,7 +41,7 @@ const App: Component = () => {
         );
       }
     }
-  }*/
+  }
   //
   let brickMapShaderCode = brickMap.writeShaderCode();
   let updateQuad = () => {
