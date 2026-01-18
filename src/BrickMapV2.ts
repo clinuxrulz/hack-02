@@ -10,7 +10,7 @@ const COMBINED_RES = (1 << COMBINED_RES_BITS);
 
 const TEXTURE_RES_BITS = 12;
 const TEXTURE_RES = (1 << TEXTURE_RES_BITS);
-const TEXTURE_RES_MASK = 1 - TEXTURE_RES;
+const TEXTURE_RES_MASK = TEXTURE_RES - 1;
 
 const START_BRICKS_OFFSET = HIGH_LEVEL_RES * HIGH_LEVEL_RES * HIGH_LEVEL_RES;
 // +1 for parent reference
@@ -34,9 +34,9 @@ export class BrickMapV2 {
     ) {
       return 0.0;
     }
-    let hiXIdx = xIdx >> HIGH_LEVEL_RES_BITS;
-    let hiYIdx = yIdx >> HIGH_LEVEL_RES_BITS;
-    let hiZIdx = zIdx >> HIGH_LEVEL_RES_BITS;
+    let hiXIdx = xIdx >> LOW_LEVEL_RES_BITS;
+    let hiYIdx = yIdx >> LOW_LEVEL_RES_BITS;
+    let hiZIdx = zIdx >> LOW_LEVEL_RES_BITS;
     let hiIdx =
       (hiZIdx << (HIGH_LEVEL_RES_BITS << 1)) +
       (hiYIdx << HIGH_LEVEL_RES_BITS) +
@@ -64,9 +64,9 @@ export class BrickMapV2 {
     ) {
       return;
     }
-    let hiXIdx = xIdx >> HIGH_LEVEL_RES_BITS;
-    let hiYIdx = yIdx >> HIGH_LEVEL_RES_BITS;
-    let hiZIdx = zIdx >> HIGH_LEVEL_RES_BITS;
+    let hiXIdx = xIdx >> LOW_LEVEL_RES_BITS;
+    let hiYIdx = yIdx >> LOW_LEVEL_RES_BITS;
+    let hiZIdx = zIdx >> LOW_LEVEL_RES_BITS;
     let hiIdx =
       (hiZIdx << (HIGH_LEVEL_RES_BITS << 1)) +
       (hiYIdx << HIGH_LEVEL_RES_BITS) +
@@ -206,9 +206,9 @@ float read_brick_map(uvec3 p) {
   ) {
     return 0.0;
   }
-  uint hiXIdx = p.x >> ${HIGH_LEVEL_RES_BITS}u;
-  uint hiYIdx = p.y >> ${HIGH_LEVEL_RES_BITS}u;
-  uint hiZIdx = p.z >> ${HIGH_LEVEL_RES_BITS}u;
+  uint hiXIdx = p.x >> ${LOW_LEVEL_RES_BITS}u;
+  uint hiYIdx = p.y >> ${LOW_LEVEL_RES_BITS}u;
+  uint hiZIdx = p.z >> ${LOW_LEVEL_RES_BITS}u;
   uint hiIdx = (
     (hiZIdx << ${HIGH_LEVEL_RES_BITS << 1}) +
     (hiYIdx << ${HIGH_LEVEL_RES_BITS}) +
