@@ -19,7 +19,7 @@ const BRICK_SIZE = 1 + LOW_LEVEL_RES * LOW_LEVEL_RES * LOW_LEVEL_RES;
 const VOXEL_SIZE = 10.0;
 
 export class BrickMapV2 {
-  private data: Uint32Array = new Uint32Array(TEXTURE_RES * TEXTURE_RES);
+  private data: Uint32Array = new Uint32Array(TEXTURE_RES * TEXTURE_RES * 4);
   private bricksEnd = START_BRICKS_OFFSET;
   
   get numBricks() {
