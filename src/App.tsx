@@ -1,20 +1,19 @@
 import { createComputed, createSignal, on, onCleanup, onMount, type Component } from 'solid-js';
-import { BrickMap } from './BrickMap';
+import { BrickMapV2 } from './BrickMapV2';
 
 const FOV_Y = 50.0;
 
 const App: Component = () => {
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ gl, setGl, ] = createSignal<WebGL2RenderingContext>();
-  let brickMap = new BrickMap();
+  let brickMap = new BrickMapV2();
   let quadVertices = new Float32Array(12);
   let quadVerticesBuffer: WebGLBuffer | undefined = undefined;
   let positionLocation: number | undefined = undefined;
   let resolutionLocation: WebGLUniformLocation | null | undefined = undefined;
   let focalLengthLocation: WebGLUniformLocation | null | undefined = undefined;
   let modelViewMatrixLocation: WebGLUniformLocation | null | undefined = undefined;
-  let nodesTexture: WebGLTexture | undefined = undefined;
-  let bricksTexture: WebGLTexture | undefined = undefined;
+  let brickMapTexture: WebGLTexture | undefined = undefined;
   let angleLocation: WebGLUniformLocation | null | undefined = undefined;
   // test data
   /*
@@ -375,11 +374,9 @@ void main(void) {
       }
       gl.useProgram(shaderProgram);
       let {
-        nodesTexture: nodesTexture2,
-        bricksTexture: bricksTexture2,
+        brickMapTexture: brickMapTexture2,
       } = brickMap.initTextures(gl, shaderProgram);
-      nodesTexture = nodesTexture2;
-      bricksTexture = bricksTexture2;
+      brickMapTexture = brickMapTexture2;
       positionLocation = gl.getAttribLocation(shaderProgram, "aVertexPosition");
       resolutionLocation = gl.getUniformLocation(shaderProgram, "resolution");
       focalLengthLocation = gl.getUniformLocation(shaderProgram, "uFocalLength");
@@ -498,10 +495,7 @@ void main(void) {
     if (gl2 == undefined) {
       return undefined;
     }
-    if (nodesTexture == undefined) {
-      return;
-    }
-    if (bricksTexture == undefined) {
+    if (brickMapTexture == undefined) {
       return;
     }
     let rect = canvas2.getBoundingClientRect();
@@ -512,7 +506,7 @@ void main(void) {
     lastDrawX = x2;
     lastDrawY = y2;
     drawInBrickmap(x2, y2);
-    brickMap.updateTextures(gl2, nodesTexture, bricksTexture);
+    brickMap.updateTextures(gl2, brickMapTexture);
     rerender();
   }
   let onPointerMove = (e: PointerEvent) => {
@@ -530,10 +524,7 @@ void main(void) {
     if (gl2 == undefined) {
       return undefined;
     }
-    if (nodesTexture == undefined) {
-      return;
-    }
-    if (bricksTexture == undefined) {
+    if (brickMapTexture == undefined) {
       return;
     }
     let rect = canvas2.getBoundingClientRect();
@@ -550,7 +541,7 @@ void main(void) {
     strokeInBrickmap(lastDrawX, lastDrawY, x2, y2);
     lastDrawX = x2;
     lastDrawY = y2;
-    brickMap.updateTextures(gl2, nodesTexture, bricksTexture);
+    brickMap.updateTextures(gl2, brickMapTexture);
     rerender();
   };
   let onPointerUp = (e: PointerEvent) => {
