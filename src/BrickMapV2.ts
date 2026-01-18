@@ -204,9 +204,9 @@ float read_brick_map(uvec3 p) {
   ) {
     return 0.0;
   }
-  uint hiXIdx = p.x >> ${HIGH_LEVEL_RES_BITS};
-  uint hiYIdx = p.y >> ${HIGH_LEVEL_RES_BITS};
-  uint hiZIdx = p.z >> ${HIGH_LEVEL_RES_BITS};
+  uint hiXIdx = p.x >> ${HIGH_LEVEL_RES_BITS}u;
+  uint hiYIdx = p.y >> ${HIGH_LEVEL_RES_BITS}u;
+  uint hiZIdx = p.z >> ${HIGH_LEVEL_RES_BITS}u;
   uint hiIdx = (
     (hiZIdx << ${HIGH_LEVEL_RES_BITS << 1}) +
     (hiYIdx << ${HIGH_LEVEL_RES_BITS}) +
@@ -216,9 +216,9 @@ float read_brick_map(uvec3 p) {
   if (offset == 0u) {
     return 0.2 * VOXEL_SIZE;
   }
-  uint lowXIdx = xIdx & ${LOW_LEVEL_RES_MASK};
-  uint lowYIdx = yIdx & ${LOW_LEVEL_RES_MASK};
-  uint lowZIdx = zIdx & ${LOW_LEVEL_RES_MASK};
+  uint lowXIdx = p.x & ${LOW_LEVEL_RES_MASK}u;
+  uint lowYIdx = p.y & ${LOW_LEVEL_RES_MASK}u;
+  uint lowZIdx = p.z & ${LOW_LEVEL_RES_MASK}u;
   uint lowIdx = (
     (lowZIdx << ${LOW_LEVEL_RES_BITS << 1}) +
     (lowYIdx << ${LOW_LEVEL_RES_BITS}) +

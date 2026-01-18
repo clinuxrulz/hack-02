@@ -317,7 +317,7 @@ void main(void) {
     return;
   }
   if (false) {
-    float v = float(read_tex_1d(uNodesTex, uint(gl_FragCoord.x)));
+    float v = float(read_tex_1d(uint(gl_FragCoord.x)));
     fragColour = vec4(v * 0.01, 0.0, 0.0, 1.0);
     return;
   }
