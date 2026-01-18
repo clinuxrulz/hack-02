@@ -125,4 +125,25 @@ export class BrickMapV2 {
     }
     this.bricksEnd -= BRICK_SIZE;
   }
+
+  writeShaderCode(): string {
+    return (
+`uniform usampler2D uBrickMapTex;
+
+uint read_tex_1d(uint index) {
+  uint pixelIndex = index >> 2u;
+  uint channel = index & 3u;
+  ivec2 coord = ivec2(
+    int(pixelIndex) & ${TEXTURE_RES_MASK},
+    int(pixelIndex) >> ${TEXTURE_RES_BITS}
+  );
+  uvec4 data = texelFetch(uBrickMapTex, coord, 0);
+  if (channel == 0u) return data.r;
+  if (channel == 1u) return data.g;
+  if (channel == 2u) return data.b;
+  return data.a;
+}
+`
+    );
+  }
 }
