@@ -49,6 +49,7 @@ export class BrickMapV2 {
     let lowYIdx = yIdx & LOW_LEVEL_RES_MASK;
     let lowZIdx = zIdx & LOW_LEVEL_RES_MASK;
     let lowIdx =
+      1 +
       (lowZIdx << (LOW_LEVEL_RES_BITS << 1)) +
       (lowYIdx << LOW_LEVEL_RES_BITS) +
       lowXIdx;
@@ -80,6 +81,7 @@ export class BrickMapV2 {
     let lowYIdx = yIdx & LOW_LEVEL_RES_MASK;
     let lowZIdx = zIdx & LOW_LEVEL_RES_MASK;
     let lowIdx =
+      1 +
       (lowZIdx << (LOW_LEVEL_RES_BITS << 1)) +
       (lowYIdx << LOW_LEVEL_RES_BITS) +
       lowXIdx;
@@ -214,12 +216,13 @@ float read_brick_map(uvec3 p) {
   );
   uint offset = read_tex_1d(hiIdx);
   if (offset == 0u) {
-    return 0.2 * VOXEL_SIZE;
+    return VOXEL_SIZE;
   }
   uint lowXIdx = p.x & ${LOW_LEVEL_RES_MASK}u;
   uint lowYIdx = p.y & ${LOW_LEVEL_RES_MASK}u;
   uint lowZIdx = p.z & ${LOW_LEVEL_RES_MASK}u;
   uint lowIdx = (
+    1u +
     (lowZIdx << ${LOW_LEVEL_RES_BITS << 1}) +
     (lowYIdx << ${LOW_LEVEL_RES_BITS}) +
     lowXIdx

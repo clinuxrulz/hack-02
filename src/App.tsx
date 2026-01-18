@@ -299,10 +299,10 @@ void main(void) {
   float fl = uFocalLength;
   float mn = min(resolution.x, resolution.y);
   vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / mn;
-  if (false) {
+  if (true) {
     vec3 p = vec3(uv.x*10240.0/3.0,uv.y*10240.0/3.0,0.0);
     float v = map(p);
-    fragColour = vec4(0.0, 0.0, v * 0.01, 1.0);
+    fragColour = vec4(0.0, 0.0, v * 0.1, 1.0);
     return;
   }
   if (false) {
