@@ -130,6 +130,8 @@ export class BrickMapV2 {
     return (
 `uniform usampler2D uBrickMapTex;
 
+const float VOXEL_SIZE=${VOXEL_SIZE.toFixed(1)};
+
 uint read_tex_1d(uint index) {
   uint pixelIndex = index >> 2u;
   uint channel = index & 3u;
@@ -142,6 +144,38 @@ uint read_tex_1d(uint index) {
   if (channel == 1u) return data.g;
   if (channel == 2u) return data.b;
   return data.a;
+}
+
+float read_brick_map(uvec3 p) {
+  if (
+    p.x >= ${COMBINED_RES}u ||
+    p.y >= ${COMBINED_RES}u ||
+    p.z >= ${COMBINED_RES}u
+  ) {
+    return 0.0;
+  }
+  uint hiXIdx = p.x >> ${HIGH_LEVEL_RES_BITS};
+  uint hiYIdx = p.y >> ${HIGH_LEVEL_RES_BITS};
+  uint hiZIdx = p.z >> ${HIGH_LEVEL_RES_BITS};
+  uint hiIdx = (
+    (hiZIdx << ${HIGH_LEVEL_RES_BITS << 1}) +
+    (hiYIdx << ${HIGH_LEVEL_RES_BITS}) +
+    hiXIdx
+  );
+  uint offset = read_tex_1d(hiIdx);
+  if (offset == 0u) {
+    return 0.2 * VOXEL_SIZE;
+  }
+  uint lowXIdx = xIdx & ${LOW_LEVEL_RES_MASK};
+  uint lowYIdx = yIdx & ${LOW_LEVEL_RES_MASK};
+  uint lowZIdx = zIdx & ${LOW_LEVEL_RES_MASK};
+  uint lowIdx = (
+    (lowZIdx << ${LOW_LEVEL_RES_BITS << 1}) +
+    (lowYIdx << ${LOW_LEVEL_RES_BITS}) +
+    lowXIdx
+  );
+  uint r = read_tex_1d(offset + lowIdx);
+  return (128.0 - float(r)) / 127.0 * VOXEL_SIZE;
 }
 `
     );
