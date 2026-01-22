@@ -204,7 +204,8 @@ const App: Component = () => {
 
 precision highp float;
 precision highp int;
-precision highp usampler2D;
+precision highp usampler3D;
+precision highp sampler3D;
 
 uniform vec2 resolution;
 uniform float uFocalLength;
@@ -214,85 +215,42 @@ out vec4 fragColour;
 
 ${brickMapShaderCode}
 
-const float CUBE_SIZE = 512.0 * VOXEL_SIZE;
-
 float map2(vec3 p) {
   p += 512.0 * VOXEL_SIZE;
   return abs(length(p - vec3(512.0*VOXEL_SIZE)) - 100.0 * VOXEL_SIZE);
 }
 
-float map(vec3 p) {
-  if (false) {
-    return map2(p);
-  }
-  p += 512.0 * VOXEL_SIZE;
-  ivec3 p_min = ivec3(
-    int(p.x / VOXEL_SIZE),
-    int(p.y / VOXEL_SIZE),
-    int(p.z / VOXEL_SIZE)
-  );
-  if (p_min.x < 0 || p_min.y < 0 || p_min.z < 0) {
-    return 1000.0;
-  }
-  uvec3 p_min_2 = uvec3(
-    uint(p_min.x),
-    uint(p_min.y),
-    uint(p_min.z)
-  );
-  vec3 d = vec3(
-    (p.x - float(p_min_2.x) * VOXEL_SIZE) / VOXEL_SIZE,
-    (p.y - float(p_min_2.y) * VOXEL_SIZE) / VOXEL_SIZE,
-    (p.z - float(p_min_2.z) * VOXEL_SIZE) / VOXEL_SIZE
-  );
-  float v_nx_ny_nz = read_brick_map(p_min_2);
-  float v_nx_ny_pz = read_brick_map(p_min_2 + uvec3(0u, 0u, 1u));
-  float v_nx_py_nz = read_brick_map(p_min_2 + uvec3(0u, 1u, 0u));
-  float v_nx_py_pz = read_brick_map(p_min_2 + uvec3(0u, 1u, 1u));
-  float v_px_ny_nz = read_brick_map(p_min_2 + uvec3(1u, 0u, 0u));
-  float v_px_ny_pz = read_brick_map(p_min_2 + uvec3(1u, 0u, 1u));
-  float v_px_py_nz = read_brick_map(p_min_2 + uvec3(1u, 1u, 0u));
-  float v_px_py_pz = read_brick_map(p_min_2 + uvec3(1u, 1u, 1u));
-  float v_ny_nz = mix(v_nx_ny_nz, v_px_ny_nz, d.x);
-  float v_ny_pz = mix(v_nx_ny_pz, v_px_ny_pz, d.x);
-  float v_py_nz = mix(v_nx_py_nz, v_px_py_nz, d.x);
-  float v_py_pz = mix(v_nx_py_pz, v_px_py_pz, d.x);
-  float v_nz = mix(v_ny_nz, v_py_nz, d.y);
-  float v_pz = mix(v_ny_pz, v_py_pz, d.y);
-  float v = mix(v_nz, v_pz, d.z);
-  return abs(v);
-}
+const int MAX_STEPS = 200;
+const float MIN_DIST = 5.0;
+const float MAX_DIST = 10000.0;
 
-const int max_iterations = 100;
-const float tollerance = 1.0;
-const float max_step = 999000.0;
-
-bool march(vec3 ro, vec3 rd, bool negateDist, out float t) {
-  vec3 p = ro;
-  t = 0.0;
-  for (int i = 0; i < max_iterations; ++i) {
-    vec3 p = ro + rd*t;
-    float d = map(p);
-    if (negateDist) {
-      d = -d;
+bool march(vec3 ro, vec3 rd, out float t) {
+    t = 0.0;
+    for(int i = 0; i < MAX_STEPS; i++) {
+        vec3 p = ro + rd * t;
+        float d = map(p);
+        
+        if(d < MIN_DIST) {
+            return true;
+        }
+        
+        t += d;
+        
+        if(t > MAX_DIST) {
+            break;
+        }
     }
-    if (d <= tollerance) {
-      return true;
-    }
-    if (d > max_step) {
-      return false;
-    }
-    t += d;
-  }
-  return false;
+    return false;
 }
 
 vec3 normal(vec3 p) {
-  float d = 0.01;
-  float mp = map(p);
-  float dx = map(p + vec3(d,0,0)) - mp;
-  float dy = map(p + vec3(0,d,0)) - mp;
-  float dz = map(p + vec3(0,0,d)) - mp;
-  return normalize(vec3(dx,dy,dz));
+    const float eps = 0.1;
+    const vec2 h = vec2(eps, 0);
+    return normalize(vec3(
+        map(p + h.xyy) - map(p - h.xyy),
+        map(p + h.yxy) - map(p - h.yxy),
+        map(p + h.yyx) - map(p - h.yyx)
+    ));
 }
 
 void main(void) {
@@ -302,17 +260,7 @@ void main(void) {
   if (false) {
     vec3 p = vec3(uv.x*10240.0/3.0,uv.y*10240.0/3.0,201.0);
     float v = map(p);
-    fragColour = vec4(0.0, 0.0, v*0.0015, 1.0);
-    return;
-  }
-  if (false) {
-    uvec3 p = uvec3(
-      uint(max(0,min(1023,int((uv.x+0.5)*1024.0)))),
-      uint(max(0,min(1023,int((uv.y+0.5)*1024.0)))),
-      512u
-    );
-    float v = read_brick_map(p);
-    fragColour = vec4(v * 0.01, float(p.x)/1024.0, float(p.y)/1024.0, 1.0);
+    fragColour = vec4(0.0, 0.0, 0.5*(sin(v*0.015)+1.0), 1.0);
     return;
   }
   float ca = cos(uAngle * acos(-1.0) / 180.0);
@@ -327,7 +275,7 @@ void main(void) {
     -fl * w
   );
   float t = 0.0;
-  bool hit = march(ro, rd, false, t);
+  bool hit = march(ro, rd, t);
   if (!hit) {
     fragColour = vec4(0.2, 0.2, 0.2, 1.0);
     return;

@@ -1,379 +1,241 @@
-type BrickMapNode = number;
-type BrickMapBrick = number;
-
-/**
- * size in Uint32s
- * first is the parent pointer
- * next 8 are the child pointers
- */
-const NODE_SIZE = 9;
-
-const TEXTURE_DEPTH = 11;
-const TEXTURE_RES = (1 << TEXTURE_DEPTH);
-
-const MAX_NODES = 2_000_000;
-const MAX_BRICKS = 40_000;
-
-const MAX_DEPTH = 11;
-const BRICK_DEPTH = 3;
-const BRICK_DIM = (1 << BRICK_DEPTH);
-const BRICK_SIZE = BRICK_DIM * BRICK_DIM * BRICK_DIM;
-const RES_XYZ = 1 << (MAX_DEPTH - 1);
-
-let ROOT_BRICK_NODE: BrickMapNode = 0;
+const RES_BITS = 10;
+const RES = (1 << RES_BITS);
+const BRICK_L_RES_BITS = 3;
+const BRICK_L_RES = (1 << BRICK_L_RES_BITS);
+const BRICK_L_RES_MASK = BRICK_L_RES - 1;
+const GRID_RES_BITS = RES_BITS - BRICK_L_RES_BITS;
+const GRID_RES = (1 << GRID_RES_BITS);
+const BRICK_P_RES = BRICK_L_RES + 2; // +2 for gutter
+const ATLAS_RES_BITS = 9;
+const ATLAS_RES = (1 << ATLAS_RES_BITS);
+const BRICKS_PER_RES = Math.floor(ATLAS_RES / BRICK_P_RES);
+const MAX_BRICKS = BRICKS_PER_RES * BRICKS_PER_RES * BRICKS_PER_RES;
+  // [x, y, z, active, ...]
+const GRID_DATA_SIZE = (GRID_RES * GRID_RES * GRID_RES) * 4
 
 export type BrickMapTextures = {
-  nodesTexture: WebGLTexture,
-  bricksTexture: WebGLTexture,
+  iTex: WebGLTexture,
+  aTex: WebGLTexture,
 };
 
 export class BrickMap {
-  private nodes: Uint32Array = new Uint32Array(MAX_NODES * NODE_SIZE);
-  private brickParents: Uint32Array = new Uint32Array(MAX_BRICKS);
-  private bricks: Uint32Array = new Uint32Array(MAX_BRICKS * BRICK_SIZE);
-  private nodeFreeIndex: number = NODE_SIZE;
-  private brickFreeIndex: number = 0;
+  private indirectionData = new Uint8Array(GRID_DATA_SIZE);
+  // holds the 8x8x8 bricks
+  private atlasData = new Uint8Array(ATLAS_RES ** 3);
+  
+  private freeBricks: number[] = [];
+  // GridIdx -> AtlasIdx
+  private brickMap = new Map<number, number>();
 
-  get numNodes(): number {
-    return this.nodeFreeIndex / NODE_SIZE;
-  }
-
-  get numBricks(): number {
-    return this.brickFreeIndex;
-  }
-
-  set(xIdx: number, yIdx: number, zIdx: number, value: number) {
-    this.set2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ, value);
-  }
-
-  get(xIdx: number, yIdx: number, zIdx: number): number {
-    return this.get2(ROOT_BRICK_NODE, xIdx, yIdx, zIdx, 1, RES_XYZ);
-  }
-
-  private set2(atNode: BrickMapNode, xIdx: number, yIdx: number, zIdx: number, level: number, res: number, value: number) {
-    let halfRes = res >> 1;
-    let halfResMask = halfRes - 1;
-    let childOffset = this.getChildOffset(xIdx, yIdx, zIdx, halfRes);
-    if (halfRes === BRICK_DIM) {
-      let brick: BrickMapBrick = this.nodes[atNode + childOffset];
-      if (brick == 0 && value == 0) {
-        return;
-      }
-      if (brick == 0) {
-        brick = this.allocBrick();
-        this.brickParents[brick - 1] = atNode;
-        this.nodes[atNode + childOffset] = brick;
-      }
-      this.writeToBrick(brick, xIdx & halfResMask, yIdx & halfResMask, zIdx & halfResMask, value);
-      if (value === 0) {
-        if (this.isBrickEmpty(brick)) {
-          this.freeBrick(brick);
-          this.nodes[atNode + childOffset] = 0;
-        }
-      }
-    } else {
-      let node: BrickMapNode = this.nodes[atNode + childOffset];
-      if (node == 0 && value == 0) {
-        return;
-      }
-      if (node == 0) {
-        node = this.allocNode();
-        this.nodes[node] = atNode;
-        this.nodes[atNode + childOffset] = node;
-      }
-      this.set2(node, xIdx & halfResMask, yIdx & halfResMask, zIdx & halfResMask, level + 1, halfRes, value);
-      if (value === 0) {
-        if (this.isNodeEmpty(node)) {
-          this.freeNode(node);
-          this.nodes[atNode + childOffset] = 0;
-        }
-      }
+  constructor() {
+    for (let i = 0; i < MAX_BRICKS; i++) {
+      this.freeBricks.push(i);
     }
   }
 
-  private get2(atNode: BrickMapNode, xIdx: number, yIdx: number, zIdx: number, level: number, res: number): number {
-    let halfRes = res >> 1;
-    let halfResMask = halfRes - 1;
-    let childOffset = this.getChildOffset(xIdx, yIdx, zIdx, halfRes);
-    if (halfRes === BRICK_DIM) {
-      let brick: BrickMapBrick = this.nodes[atNode + childOffset];
-      if (brick == 0) {
-        return 0;
-      }
-      return this.readFromBrick(brick, xIdx & halfResMask, yIdx & halfResMask, zIdx & halfResMask);
-    } else {
-      let node: BrickMapNode = this.nodes[atNode + childOffset];
-      if (node == 0) {
-        return 0;
-      }
-      return this.get2(node, xIdx & halfResMask, yIdx & halfResMask, zIdx & halfResMask, level + 1, halfRes);
+  private getGridIdx(gx: number, gy: number, gz: number) {
+    return (gz * GRID_RES * GRID_RES) + (gy * GRID_RES) + gx;
+  }
+
+  get(x: number, y: number, z: number): number {
+    const gx = x >> BRICK_L_RES_BITS;
+    const gy = y >> BRICK_L_RES_BITS;
+    const gz = z >> BRICK_L_RES_BITS;
+    const gIdx = this.getGridIdx(gx, gy, gz);
+    
+    let aIdx = this.brickMap.get(gIdx);
+    if (aIdx == undefined) {
+      return 0;
     }
+
+    const ax = aIdx % BRICKS_PER_RES;
+    const ay = Math.floor(aIdx / BRICKS_PER_RES) % BRICKS_PER_RES;
+    const az = Math.floor(aIdx / (BRICKS_PER_RES * BRICKS_PER_RES));
+    
+    const lx = (x & BRICK_L_RES_MASK) + 1;
+    const ly = (y & BRICK_L_RES_MASK) + 1;
+    const lz = (z & BRICK_L_RES_MASK) + 1;
+
+    const atlasPos = (
+      (az * BRICK_P_RES + lz) * ATLAS_RES * ATLAS_RES +
+      (ay * BRICK_P_RES + ly) * ATLAS_RES +
+      (ax * BRICK_P_RES + lx)
+    );
+    return this.atlasData[atlasPos];
   }
 
-  private writeToBrick(brick: BrickMapBrick, xIdx: number, yIdx: number, zIdx: number, value: number) {
-    const localIdx = xIdx + (yIdx * BRICK_DIM) + (zIdx * BRICK_DIM * BRICK_DIM);
-    this.bricks[(brick - 1) * BRICK_SIZE + localIdx] = value;
-  }
+  set(x: number, y: number, z: number, value: number) {
+    // 1. Determine the range of bricks affected by this voxel.
+    // Because of the 1-voxel gutter, world voxel 'x' affects any brick
+    // whose logical range (gx*8 to gx*8+7) is within 1 unit of 'x'.
+    const minGx = (x - 1) >> BRICK_L_RES_BITS;
+    const maxGx = (x + 1) >> BRICK_L_RES_BITS;
+    const minGy = (y - 1) >> BRICK_L_RES_BITS;
+    const maxGy = (y + 1) >> BRICK_L_RES_BITS;
+    const minGz = (z - 1) >> BRICK_L_RES_BITS;
+    const maxGz = (z + 1) >> BRICK_L_RES_BITS;
 
-  private readFromBrick(brick: BrickMapBrick, xIdx: number, yIdx: number, zIdx: number) {
-    const localIdx = xIdx + (yIdx * BRICK_DIM) + (zIdx * BRICK_DIM * BRICK_DIM);
-    return this.bricks[(brick - 1) * BRICK_SIZE + localIdx];
-  }
+    // 2. Iterate through all potential bricks (max 27, but usually 1, 2, 4, or 8)
+    for (let gz = minGz; gz <= maxGz; gz++) {
+      for (let gy = minGy; gy <= maxGy; gy++) {
+        for (let gx = minGx; gx <= maxGx; gx++) {
+          
+          // Boundary check for the 128x128x128 grid
+          if (gx < 0 || gx >= GRID_RES || gy < 0 || gy >= GRID_RES || gz < 0 || gz >= GRID_RES) continue;
 
-  private allocBrick(): BrickMapBrick {
-    let brick: BrickMapBrick = ++this.brickFreeIndex;
-    this.brickParents[(brick - 1)] = 0;
-    let offset = (brick - 1) * BRICK_SIZE;
-    for (let i = 0; i < BRICK_SIZE; ++i) {
-      this.bricks[offset + i] = 0;
-    }
-    return brick;
-  }
+          const gIdx = this.getGridIdx(gx, gy, gz);
+          
+          // 3. Calculate local coordinate in this specific brick's 10x10x10 space.
+          // The +1 accounts for the left/bottom/front padding.
+          const lx = x - (gx * BRICK_L_RES) + 1;
+          const ly = y - (gy * BRICK_L_RES) + 1;
+          const lz = z - (gz * BRICK_L_RES) + 1;
 
-  private allocNode(): BrickMapNode {
-    let node: BrickMapNode = this.nodeFreeIndex;
-    this.nodeFreeIndex += NODE_SIZE;
-    for (let i = 0; i < NODE_SIZE; ++i) {
-      this.nodes[node + i] = 0;
-    }
-    return node;
-  }
+          // Check if it's the "primary" owner (interior 1-8)
+          const isInterior = (lx >= 1 && lx <= 8 && ly >= 1 && ly <= 8 && lz >= 1 && lz <= 8);
 
-  private isBrickEmpty(brick: BrickMapBrick): boolean {
-    let offset = (brick - 1) * BRICK_SIZE;
-    for (let i = 0; i < BRICK_SIZE; i++) {
-      if (this.bricks[offset + i] !== 0) {
-        return false;
-      }
-    }
-    return true;
-  }
+          // 4. Update the Atlas if the brick is active.
+          // If it's the "interior" owner, we ensure the brick exists.
+          // If it's just a gutter update, we only update it if the neighbor already exists.
+          if (isInterior) {
+            this.ensureBrickAllocated(gx, gy, gz);
+          }
 
-  private isNodeEmpty(node: BrickMapNode) {
-    for (let i = 1; i <= 8; ++i) {
-      if (this.nodes[node + i] !== 0) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private freeBrick(brick: BrickMapBrick) {
-    this.brickParents[brick - 1] = 0;
-    if (this.brickFreeIndex > 1) {
-      let parent = this.brickParents[this.brickFreeIndex - 1];
-      this.brickParents[brick - 1] = parent;
-      let offsetDst = (brick - 1) * BRICK_SIZE;
-      let offsetSrc = (this.brickFreeIndex - 1) * BRICK_SIZE;
-      for (let i = 0; i < BRICK_SIZE; ++i) {
-        this.bricks[offsetDst + i] = this.bricks[offsetSrc + i];
-      }
-      for (let i = 1; i <= 8; ++i) {
-        if (this.nodes[parent + i] == this.brickFreeIndex) {
-          this.nodes[parent + i] = brick;
+          if (this.brickMap.has(gIdx)) {
+            const aIdx = this.brickMap.get(gIdx)!;
+            this.writeToAtlas(aIdx, lx, ly, lz, value);
+          }
         }
       }
     }
-    this.brickFreeIndex--;
   }
 
-  private freeNode(node: BrickMapNode) {
-    this.nodes[node] = 0;
-    if (this.nodeFreeIndex > NODE_SIZE) {
-      let offsetSrc = this.nodeFreeIndex - NODE_SIZE;
-      let parent = this.nodes[offsetSrc];
-      this.nodes[node] = parent;
-      for (let i = 0; i <= 8; ++i) {
-        this.nodes[node + i] = this.nodes[offsetSrc + i];
-      }
-      for (let i = 1; i <= 8; ++i) {
-        if (this.nodes[parent + i] === offsetSrc) {
-          this.nodes[parent + i] = node;
-        }
-      }
+  private ensureBrickAllocated(gx: number, gy: number, gz: number) {
+    const gIdx = this.getGridIdx(gx, gy, gz);
+    if (!this.brickMap.has(gIdx)) {
+      const aIdx = this.freeBricks.pop();
+      if (aIdx === undefined) return;
+
+      this.brickMap.set(gIdx, aIdx);
+      
+      // Update Indirection Texture Data
+      const iOffset = gIdx * 4;
+      this.indirectionData[iOffset] = aIdx % BRICKS_PER_RES;
+      this.indirectionData[iOffset + 1] = Math.floor(aIdx / BRICKS_PER_RES) % BRICKS_PER_RES;
+      this.indirectionData[iOffset + 2] = Math.floor(aIdx / (BRICKS_PER_RES * BRICKS_PER_RES));
+      this.indirectionData[iOffset + 3] = 255; // Alpha = Active
     }
-    this.nodeFreeIndex -= NODE_SIZE;
   }
 
-  private getChildOffset(xIdx: number, yIdx: number, zIdx: number, halfRes: number): number {
-    let off = 1;
-    if (xIdx >= halfRes) off += 4;
-    if (yIdx >= halfRes) off += 2;
-    if (zIdx >= halfRes) off += 1;
-    return off;
+  private writeToAtlas(aIdx: number, lx: number, ly: number, lz: number, val: number) {
+    const ax = aIdx % BRICKS_PER_RES;
+    const ay = Math.floor(aIdx / BRICKS_PER_RES) % BRICKS_PER_RES;
+    const az = Math.floor(aIdx / (BRICKS_PER_RES * BRICKS_PER_RES));
+
+    const atlasPos = (
+      (az * BRICK_P_RES + lz) * ATLAS_RES * ATLAS_RES +
+      (ay * BRICK_P_RES + ly) * ATLAS_RES +
+      (ax * BRICK_P_RES + lx)
+    );
+    this.atlasData[atlasPos] = val;
   }
 
   initTextures(
     gl: WebGL2RenderingContext,
     program: WebGLProgram,
   ): BrickMapTextures {
-    let uNodesTex = gl.getUniformLocation(program, "uNodesTex");
-    let uBricksTex = gl.getUniformLocation(program, "uBricksTex");
-    gl.uniform1i(uNodesTex, 0);
-    gl.uniform1i(uBricksTex, 1);
+    let uIndirectionTex = gl.getUniformLocation(program, "uIndirectionTex");
+    let uAtlasTex = gl.getUniformLocation(program, "uAtlasTex");
+    gl.uniform1i(uIndirectionTex, 0);
+    gl.uniform1i(uAtlasTex, 1);
+
     gl.activeTexture(gl.TEXTURE0);
-    let nodesTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, nodesTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA32UI,
-      TEXTURE_RES,
-      TEXTURE_RES,
-      0,
-      gl.RGBA_INTEGER,
-      gl.UNSIGNED_INT,
-      this.nodes,
-    );
+    const iTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_3D, iTex);
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA8, GRID_RES, GRID_RES, GRID_RES, 0, gl.RGBA, gl.UNSIGNED_BYTE, this.indirectionData);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+
     gl.activeTexture(gl.TEXTURE1);
-    let bricksTexture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, bricksTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA32UI,
-      TEXTURE_RES,
-      TEXTURE_RES,
-      0,
-      gl.RGBA_INTEGER,
-      gl.UNSIGNED_INT,
-      this.bricks,
-    );
-    return {
-      nodesTexture,
-      bricksTexture,
-    };
+    const aTex = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_3D, aTex);
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.R8, ATLAS_RES, ATLAS_RES, ATLAS_RES, 0, gl.RED, gl.UNSIGNED_BYTE, this.atlasData);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // CRITICAL: Trilinear enabled
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    
+    return { iTex, aTex };
   }
 
-  updateTextures(
-    gl: WebGL2RenderingContext,
-    brickmapTextures: BrickMapTextures,
-  ) {
-    let {
-      nodesTexture,
-      bricksTexture,
-    } = brickmapTextures;
+  updateTextures(gl: WebGL2RenderingContext, textures: BrickMapTextures) {
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, nodesTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
+    gl.bindTexture(gl.TEXTURE_3D, textures.iTex);
+    gl.texSubImage3D(
+      gl.TEXTURE_3D,
       0,
-      gl.RGBA32UI,
-      TEXTURE_RES,
-      TEXTURE_RES,
       0,
-      gl.RGBA_INTEGER,
-      gl.UNSIGNED_INT,
-      this.nodes,
+      0,
+      0,
+      GRID_RES,
+      GRID_RES,
+      GRID_RES,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      this.indirectionData,
     );
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, bricksTexture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
+    gl.bindTexture(gl.TEXTURE_3D, textures.aTex);
+    gl.texSubImage3D(
+      gl.TEXTURE_3D,
       0,
-      gl.RGBA32UI,
-      TEXTURE_RES,
-      TEXTURE_RES,
       0,
-      gl.RGBA_INTEGER,
-      gl.UNSIGNED_INT,
-      this.bricks,
+      0,
+      0,
+      ATLAS_RES,
+      ATLAS_RES,
+      ATLAS_RES,
+      gl.RED,
+      gl.UNSIGNED_BYTE,
+      this.atlasData,
     );
   }
 
   writeShaderCode(): string {
+    let VOXEL_SIZE = 10.0;
     return (
-`uniform usampler2D uNodesTex;
-uniform usampler2D uBricksTex;
+`uniform sampler3D uIndirectionTex;
+uniform sampler3D uAtlasTex;
 
-const float VOXEL_SIZE = 10.0;
+const float VOXEL_SIZE = ${VOXEL_SIZE.toFixed(1)};
+const float GRID_RES = ${GRID_RES.toFixed(1)};
+const float ATLAS_RES = ${ATLAS_RES.toFixed(1)};
+const float HALF_VOLUME_SIZE = ${((RES >> 1) * VOXEL_SIZE).toFixed(1)};
 
-uint read_tex_1d(usampler2D tex, uint index) {
-    int width = ${TEXTURE_RES}; 
-    uint pixelIndex = index >> 2u;
-    uint channel = index & 3u;
-    ivec2 coord = ivec2(int(pixelIndex) & (width-1), int(pixelIndex) >> ${TEXTURE_DEPTH});
-    uvec4 data = texelFetch(tex, coord, 0);
-    if (channel == 0u) return data.r;
-    if (channel == 1u) return data.g;
-    if (channel == 2u) return data.b;
-    return data.a;
-}
+float map(vec3 p) {
+    vec3 p_local = p + HALF_VOLUME_SIZE;
+    // calc grid coords
+    vec3 uvw = p_local / ${(GRID_RES * BRICK_L_RES * VOXEL_SIZE).toFixed(1)};
+    vec4 brickInfo = texture(uIndirectionTex, uvw);
+    if (brickInfo.a == 0.0) return ${(0.5 * BRICK_L_RES * VOXEL_SIZE).toFixed(1)};
 
-uint get_child_offset(uvec3 p, uint half_res) {
-  uint offset = 1u;
-  if (p.x >= half_res) {
-    offset += 4u;
-  }
-  if (p.y >= half_res) {
-    offset += 2u;
-  }
-  if (p.z >= half_res) {
-    offset += 1u;
-  }
-  return offset;
-}
+    vec3 cellLocal = fract(uvw * GRID_RES);
 
-float read_from_brick(uint brick, uvec3 p) {
-  uint local_idx = p.x + (p.y * ${BRICK_DIM}u) + (p.z * ${BRICK_DIM * BRICK_DIM}u);
-  uint global_idx = (brick - 1u) * ${BRICK_SIZE}u + local_idx;
-  uint r = read_tex_1d(uBricksTex, global_idx);
-  return (128.0 - float(r)) / 127.0 * VOXEL_SIZE;
-}
+    // Map the 0.0->1.0 logical range to the 1.0->9.0 physical range (the padding)
+    // Physical coordinate = (BrickIndex * 10.0) + 1.0 (offset) + (local * 8.0)
+    vec3 brickBase = brickInfo.xyz * 255.0 * 10.0;
+    vec3 atlasVoxelPos = brickBase + 1.0 + (cellLocal * 8.0);
+    
+    vec3 atlasUVW = atlasVoxelPos / ATLAS_RES;
 
-float read_brick_map(uvec3 p) {
-  if (false) {
-    vec3 p2 = vec3(
-      float(p.x) - 512.0,
-      float(p.y) - 512.0,
-      float(p.z) - 512.0
-    );
-    return (length(p2) - 100.0) * VOXEL_SIZE;
-  }
-  uint res = ${RES_XYZ}u;
-  uint at_node = 0u;
-  for (uint level = 0u; level < ${MAX_DEPTH - BRICK_DEPTH}u; ++level) {
-    uint half_res = res >> 1u;
-    uint half_res_mask = half_res - 1u;
-    uint child_offset = get_child_offset(p, half_res);
-    uint brick_or_node = read_tex_1d(uNodesTex, at_node + child_offset);
-    if (half_res == ${BRICK_DIM}u) {
-      uint brick = brick_or_node;
-      if (brick == 0u) {
-        return 0.2*float(half_res) * VOXEL_SIZE;
-      }
-      return read_from_brick(
-        brick,
-        uvec3(
-          p.x & half_res_mask,
-          p.y & half_res_mask,
-          p.z & half_res_mask
-        )
-      );
-    } else {
-      uint node = brick_or_node;
-      if (node == 0u) {
-        return 0.2*float(half_res) * VOXEL_SIZE;
-      }
-      // tail recursion next params
-      at_node = node;
-      p = uvec3(
-        p.x & half_res_mask,
-        p.y & half_res_mask,
-        p.z & half_res_mask
-      );
-      res = half_res;
-    }
-  }
-  return 0.0;
+    // hardware based trilinear interpolation
+    float val = texture(uAtlasTex, atlasUVW).r;
+    //
+    return (0.5 - val) * 2.0 * VOXEL_SIZE;
 }
 `
     );
