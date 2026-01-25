@@ -5,8 +5,14 @@ import { FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
 
 const FOV_Y = 50.0;
 
+export type RendererViewController = {
+  onBrickMapChanged: () => void,
+  rerender: () => void,
+};
+
 const RendererView: Component<{
   brickMap: BrickMap,
+  onInit: (controller: RendererViewController) => void,
 }> = (props) => {
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ camera, setCamera, ] = createSignal<THREE.PerspectiveCamera>();
@@ -23,7 +29,7 @@ uniform vec2 resolution;
 uniform float uFocalLength;
 uniform float uAngle;
 
-out vec4 fragColour;
+//out vec4 fragColour;
 
 ${brickMapShaderCode}
 
@@ -70,9 +76,12 @@ void main(void) {
   float mn = min(resolution.x, resolution.y);
   vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / mn;
   if (false) {
+    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+  }
+  if (false) {
     vec3 p = vec3(uv.x*10240.0/3.0,uv.y*10240.0/3.0,201.0);
     float v = map(p);
-    fragColour = vec4(0.0, 0.0, 0.5*(sin(v*0.015)+1.0), 1.0);
+    gl_FragColor = vec4(0.0, 0.0, 0.5*(sin(v*0.015)+1.0), 1.0);
     return;
   }
   float ca = cos(uAngle * acos(-1.0) / 180.0);
@@ -89,7 +98,7 @@ void main(void) {
   float t = 0.0;
   bool hit = march(ro, rd, t);
   if (!hit) {
-    fragColour = vec4(0.2, 0.2, 0.2, 1.0);
+    gl_FragColor = vec4(0.2, 0.2, 0.2, 1.0);
     return;
   }
   vec3 p = ro + rd*t;
@@ -97,7 +106,7 @@ void main(void) {
   float s = 0.8*dot(n,normalize(vec3(1,1,1))) + 0.2;
   vec4 c = vec4(1.0, 1.0, 1.0, 1.0);
   c = vec4(c.rgb * s, c.a);
-  fragColour = c;
+  gl_FragColor = c;
 }
 `;
   console.log(
@@ -139,6 +148,13 @@ void main(void) {
       });
     };
   }
+  props.onInit({
+    rerender,
+    onBrickMapChanged() {
+      props.brickMap.updateTexturesThreeJs(brickMapTextures);
+      rerender();
+    },
+  });
   onMount(() => {
     let canvas2 = canvas();
     if (canvas2 == undefined) {
@@ -147,6 +163,10 @@ void main(void) {
     let camera = new THREE.PerspectiveCamera(
       FOV_Y,
     );
+    let renderer = new THREE.WebGLRenderer({
+      canvas: canvas2,
+    });
+    renderer.setPixelRatio(window.devicePixelRatio);
     let resizeObserver = new ResizeObserver(() => {
       let rect = canvas2.getBoundingClientRect();
       camera.aspect = rect.width / rect.height;
@@ -154,6 +174,7 @@ void main(void) {
       let width = rect.width * window.devicePixelRatio;
       let height = rect.height * window.devicePixelRatio;
       let focalLength = 0.5 * height / Math.tan(0.5 * FOV_Y * Math.PI / 180.0);
+      renderer.setSize(rect.width, rect.height);
       material.uniforms.resolution.value.set(
         width,
         height,
@@ -166,10 +187,6 @@ void main(void) {
       resizeObserver.unobserve(canvas2);
       resizeObserver.disconnect();
     });
-    let renderer = new THREE.WebGLRenderer({
-      canvas: canvas2,
-    });
-    renderer.setPixelRatio(window.devicePixelRatio);
     batch(() => {
       setCamera(camera);
       setRenderer(renderer);

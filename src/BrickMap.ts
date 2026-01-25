@@ -141,8 +141,6 @@ export class BrickMap {
       uniforms = {};
       params.uniforms = uniforms;
     }
-    uniforms.uIndirectionTex = { value: 0, };
-    uniforms.uAtlasTex = { value: 1, };
     let iTex = new THREE.Data3DTexture(
       this.indirectionData,
       GRID_RES,
@@ -173,6 +171,8 @@ export class BrickMap {
     aTex.wrapR = THREE.ClampToEdgeWrapping;
     aTex.unpackAlignment = 1;
     aTex.needsUpdate = true;
+    uniforms.uIndirectionTex = { value: iTex, };
+    uniforms.uAtlasTex = { value: aTex, };
     return {
       iTex,
       aTex,
