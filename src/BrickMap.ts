@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 const RES_BITS = 10;
 const RES = (1 << RES_BITS);
 const BRICK_L_RES_BITS = 3;
@@ -12,6 +14,11 @@ const BRICKS_PER_RES = Math.floor(ATLAS_RES / BRICK_P_RES);
 const MAX_BRICKS = BRICKS_PER_RES * BRICKS_PER_RES * BRICKS_PER_RES;
   // [x, y, z, active, ...]
 const GRID_DATA_SIZE = (GRID_RES * GRID_RES * GRID_RES) * 4
+
+export type BrickMapTHREETextures = {
+  iTex: THREE.Data3DTexture,
+  aTex: THREE.Data3DTexture,
+};
 
 export type BrickMapTextures = {
   iTex: WebGLTexture,
@@ -124,6 +131,57 @@ export class BrickMap {
       (ax * BRICK_P_RES + lx)
     );
     this.atlasData[atlasPos] = val;
+  }
+
+  initTexturesThreeJs(
+    params: THREE.ShaderMaterialParameters,
+  ): BrickMapTHREETextures {
+    let uniforms = params.uniforms;
+    if (uniforms == undefined) {
+      uniforms = {};
+      params.uniforms = uniforms;
+    }
+    uniforms.uIndirectionTex = { value: 0, };
+    uniforms.uAtlasTex = { value: 1, };
+    let iTex = new THREE.Data3DTexture(
+      this.indirectionData,
+      GRID_RES,
+      GRID_RES,
+      GRID_RES,
+    );
+    iTex.format = THREE.RGBAFormat;
+    iTex.type = THREE.UnsignedByteType;
+    iTex.minFilter = THREE.NearestFilter;
+    iTex.magFilter = THREE.NearestFilter;
+    iTex.wrapS = THREE.ClampToEdgeWrapping;
+    iTex.wrapT = THREE.ClampToEdgeWrapping;
+    iTex.wrapR = THREE.ClampToEdgeWrapping;
+    iTex.unpackAlignment = 1;
+    iTex.needsUpdate = true;
+    let aTex = new THREE.Data3DTexture(
+      this.atlasData,
+      ATLAS_RES,
+      ATLAS_RES,
+      ATLAS_RES,
+    );
+    aTex.format = THREE.RedFormat; 
+    aTex.type = THREE.UnsignedByteType;
+    aTex.minFilter = THREE.LinearFilter;
+    aTex.magFilter = THREE.LinearFilter;
+    aTex.wrapS = THREE.ClampToEdgeWrapping;
+    aTex.wrapT = THREE.ClampToEdgeWrapping;
+    aTex.wrapR = THREE.ClampToEdgeWrapping;
+    aTex.unpackAlignment = 1;
+    aTex.needsUpdate = true;
+    return {
+      iTex,
+      aTex,
+    };
+  }
+
+  updateTexturesThreeJs(textures: BrickMapTHREETextures) {
+    textures.iTex.needsUpdate = true;
+    textures.aTex.needsUpdate = true;
   }
 
   initTextures(
