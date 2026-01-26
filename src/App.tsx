@@ -7,7 +7,7 @@ const FOV_Y = 50.0;
 const App: Component = () => {
   let [ renderDiv, setRenderDiv, ] = createSignal<HTMLDivElement>();
   let [ rendererViewController, setRendererViewController, ] = createSignal<RendererViewController>();
-  let [ isTransformDragging, setTransformDragging, ] = createSignal(true);
+  let [ isTransformDragging, setTransformDragging, ] = createSignal(false);
   let brickMap = new BrickMap();
   // test data
   function test_sdf(x: number, y: number, z: number) {

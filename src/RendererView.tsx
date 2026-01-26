@@ -1,6 +1,7 @@
 import { batch, Component, createSignal, onCleanup, onMount } from "solid-js";
 import * as THREE from "three";
 import { BrickMap } from "./BrickMap";
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
@@ -22,6 +23,7 @@ const RendererView: Component<{
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ camera, setCamera, ] = createSignal<THREE.PerspectiveCamera>();
   let [ renderer, setRenderer, ] = createSignal<THREE.WebGLRenderer>();
+  let [ orbitControls, setOrbitControls, ] = createSignal<OrbitControls>();
   let [ transformControls, setTransformControls, ] = createSignal<TransformControls>();
   let scene = new THREE.Scene();
   let brickMapShaderCode = props.brickMap.writeShaderCode();
@@ -208,12 +210,17 @@ void main(void) {
       resizeObserver.unobserve(canvas2);
       resizeObserver.disconnect();
     });
+    let orbitControls = new OrbitControls(camera2, canvas2);
+    orbitControls.enableDamping = false;
+    orbitControls.update();
+    orbitControls.addEventListener("change", () => rerender());
     let transformControls2 = new TransformControls(camera2, canvas2);
     let dummy = new THREE.Object3D();
     transformControls2.attach(dummy);
     transformControls2.addEventListener("dragging-changed", (e) => {
       let dragging = e.value as boolean;
       props.onDragingEvent(dragging);
+      orbitControls.enabled = !dragging;
     });
     transformControls2.addEventListener("change", () => {
       rerender();
@@ -223,6 +230,7 @@ void main(void) {
     batch(() => {
       setCamera(camera2);
       setRenderer(renderer2);
+      setOrbitControls(orbitControls);
       setTransformControls(transformControls2);
     });
     rerender();
