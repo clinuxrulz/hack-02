@@ -7,6 +7,7 @@ const FOV_Y = 50.0;
 const App: Component = () => {
   let [ renderDiv, setRenderDiv, ] = createSignal<HTMLDivElement>();
   let [ rendererViewController, setRendererViewController, ] = createSignal<RendererViewController>();
+  let [ isTransformDragging, setTransformDragging, ] = createSignal(true);
   let brickMap = new BrickMap();
   // test data
   function test_sdf(x: number, y: number, z: number) {
@@ -140,6 +141,9 @@ const App: Component = () => {
   let lastDrawX: number | undefined = undefined;
   let lastDrawY: number | undefined = undefined;
   let onPointerDown = (e: PointerEvent) => {
+    if (isTransformDragging()) {
+      return;
+    }
     let renderDiv2 = renderDiv();
     if (renderDiv2 == undefined) {
       return;
@@ -160,6 +164,9 @@ const App: Component = () => {
     controller.onBrickMapChanged();
   }
   let onPointerMove = (e: PointerEvent) => {
+    if (isTransformDragging()) {
+      return;
+    }
     if (lastDrawX == undefined) {
       return;
     }
@@ -191,6 +198,9 @@ const App: Component = () => {
     controller.onBrickMapChanged();
   };
   let onPointerUp = (e: PointerEvent) => {
+    if (isTransformDragging()) {
+      return;
+    }
     let renderDiv2 = renderDiv();
     if (renderDiv2 == undefined) {
       return;
@@ -217,6 +227,18 @@ const App: Component = () => {
     };
     requestAnimationFrame(animate);
   };
+  let move = () => {
+    let controller = rendererViewController();
+    controller?.moveTransform();
+  };
+  let rotate = () => {
+    let controller = rendererViewController();
+    controller?.rotateTransform();
+  };
+  let scale = () => {
+    let controller = rendererViewController();
+    controller?.scaleTransform();
+  };
   return (
     <div
       style={{
@@ -241,6 +263,9 @@ const App: Component = () => {
       >
         <RendererView
           brickMap={brickMap}
+          onDragingEvent={(isDraging) => {
+            setTransformDragging(isDraging);
+          }}
           onInit={(controller) => {
             setRendererViewController(controller);
           }}
@@ -260,6 +285,24 @@ const App: Component = () => {
           onClick={() => spin()}
         >
           Spin
+        </button>
+        <button
+          class="btn btn-primary ml-2"
+          onClick={() => move()}
+        >
+          Move
+        </button>
+        <button
+          class="btn btn-primary ml-2"
+          onClick={() => rotate()}
+        >
+          Rotate
+        </button>
+        <button
+          class="btn btn-primary ml-2"
+          onClick={() => scale()}
+        >
+          Scale
         </button>
       </div>
     </div>

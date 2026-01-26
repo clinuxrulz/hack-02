@@ -2,21 +2,27 @@ import { batch, Component, createSignal, onCleanup, onMount } from "solid-js";
 import * as THREE from "three";
 import { BrickMap } from "./BrickMap";
 import { FullScreenQuad } from 'three/examples/jsm/postprocessing/Pass.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const FOV_Y = 50.0;
 
 export type RendererViewController = {
   onBrickMapChanged: () => void,
   rerender: () => void,
+  moveTransform: () => void,
+  rotateTransform: () => void,
+  scaleTransform: () => void,
 };
 
 const RendererView: Component<{
   brickMap: BrickMap,
+  onDragingEvent: (isDraging: boolean) => void,
   onInit: (controller: RendererViewController) => void,
 }> = (props) => {
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ camera, setCamera, ] = createSignal<THREE.PerspectiveCamera>();
   let [ renderer, setRenderer, ] = createSignal<THREE.WebGLRenderer>();
+  let [ transformControls, setTransformControls, ] = createSignal<TransformControls>();
   let scene = new THREE.Scene();
   let brickMapShaderCode = props.brickMap.writeShaderCode();
   let fragmentShaderCode = `
@@ -143,7 +149,7 @@ void main(void) {
           return;
         }
         fullScreenQuad.render(renderer2);
-        //renderer2.render(scene, camera2);
+        renderer2.render(scene, camera2);
         isRendering = false;
       });
     };
@@ -154,27 +160,42 @@ void main(void) {
       props.brickMap.updateTexturesThreeJs(brickMapTextures);
       rerender();
     },
+    moveTransform() {
+      let transformControls2 = transformControls();
+      transformControls2?.setMode("translate");
+    },
+    rotateTransform() {
+      let transformControls2 = transformControls();
+      transformControls2?.setMode("rotate");
+    },
+    scaleTransform() {
+      let transformControls2 = transformControls();
+      transformControls2?.setMode("scale");
+    },
   });
   onMount(() => {
     let canvas2 = canvas();
     if (canvas2 == undefined) {
       return;
     }
-    let camera = new THREE.PerspectiveCamera(
+    let camera2 = new THREE.PerspectiveCamera(
       FOV_Y,
     );
-    let renderer = new THREE.WebGLRenderer({
+    camera2.position.set(10, 10, 10);
+    camera2.lookAt(new THREE.Vector3(0.0, 0.0, 0.0));
+    let renderer2 = new THREE.WebGLRenderer({
       canvas: canvas2,
     });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer2.setPixelRatio(window.devicePixelRatio);
+    renderer2.autoClear = false;
     let resizeObserver = new ResizeObserver(() => {
       let rect = canvas2.getBoundingClientRect();
-      camera.aspect = rect.width / rect.height;
-      camera.updateProjectionMatrix();
+      camera2.aspect = rect.width / rect.height;
+      camera2.updateProjectionMatrix();
       let width = rect.width * window.devicePixelRatio;
       let height = rect.height * window.devicePixelRatio;
       let focalLength = 0.5 * height / Math.tan(0.5 * FOV_Y * Math.PI / 180.0);
-      renderer.setSize(rect.width, rect.height);
+      renderer2.setSize(rect.width, rect.height);
       material.uniforms.resolution.value.set(
         width,
         height,
@@ -187,9 +208,22 @@ void main(void) {
       resizeObserver.unobserve(canvas2);
       resizeObserver.disconnect();
     });
+    let transformControls2 = new TransformControls(camera2, canvas2);
+    let dummy = new THREE.Object3D();
+    transformControls2.attach(dummy);
+    transformControls2.addEventListener("dragging-changed", (e) => {
+      let dragging = e.value as boolean;
+      props.onDragingEvent(dragging);
+    });
+    transformControls2.addEventListener("change", () => {
+      rerender();
+    });
+    scene.add(dummy);
+    scene.add(transformControls2.getHelper());
     batch(() => {
-      setCamera(camera);
-      setRenderer(renderer);
+      setCamera(camera2);
+      setRenderer(renderer2);
+      setTransformControls(transformControls2);
     });
     rerender();
   });
