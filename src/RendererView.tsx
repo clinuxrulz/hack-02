@@ -1,4 +1,4 @@
-import { batch, Component, createSignal, onCleanup, onMount } from "solid-js";
+import { Accessor, batch, Component, createSignal, onCleanup, onMount } from "solid-js";
 import * as THREE from "three";
 import { BrickMap } from "./BrickMap";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -8,6 +8,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 const FOV_Y = 50.0;
 
 export type RendererViewController = {
+  canvasSize: Accessor<THREE.Vector2 | undefined>,
   onBrickMapChanged: () => void,
   rerender: () => void,
   moveTransform: () => void,
@@ -21,6 +22,7 @@ const RendererView: Component<{
   onInit: (controller: RendererViewController) => void,
 }> = (props) => {
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
+  let [ canvasSize, setCanvasSize, ] = createSignal<THREE.Vector2>();
   let [ camera, setCamera, ] = createSignal<THREE.PerspectiveCamera>();
   let [ renderer, setRenderer, ] = createSignal<THREE.WebGLRenderer>();
   let [ orbitControls, setOrbitControls, ] = createSignal<OrbitControls>();
@@ -157,11 +159,12 @@ void main(void) {
     };
   }
   props.onInit({
-    rerender,
+    canvasSize,
     onBrickMapChanged() {
       props.brickMap.updateTexturesThreeJs(brickMapTextures);
       rerender();
     },
+    rerender,
     moveTransform() {
       let transformControls2 = transformControls();
       transformControls2?.setMode("translate");
@@ -192,6 +195,7 @@ void main(void) {
     renderer2.autoClear = false;
     let resizeObserver = new ResizeObserver(() => {
       let rect = canvas2.getBoundingClientRect();
+      setCanvasSize(new THREE.Vector2(rect.width, rect.height));
       camera2.aspect = rect.width / rect.height;
       camera2.updateProjectionMatrix();
       let width = rect.width * window.devicePixelRatio;
