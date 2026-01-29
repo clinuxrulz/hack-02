@@ -178,6 +178,11 @@ void main(void) {
         if (camera2 == undefined) {
           return;
         }
+        let oribitControls2 = orbitControls();
+        if (oribitControls2 == undefined) {
+          return;
+        }
+        oribitControls2.update(); 
         material.uniforms.viewMatrixInverse.value.copy(camera2.matrixWorld);
         material.uniforms.projectionMatrixInverse.value.copy(camera2.projectionMatrixInverse);
         material.uniforms.cameraPosition.value.copy(camera2.position);
