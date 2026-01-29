@@ -1,4 +1,4 @@
-import { Accessor, batch, Component, createComputed, createSignal, onCleanup, onMount } from "solid-js";
+import { Accessor, batch, Component, createComputed, createSignal, on, onCleanup, onMount, untrack } from "solid-js";
 import * as THREE from "three";
 import { BrickMap } from "./BrickMap";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -21,6 +21,7 @@ const RendererView: Component<{
   onDragingEvent: (isDraging: boolean) => void,
   onInit: (controller: RendererViewController) => void,
   disableOrbit: boolean,
+  overlayObject3D: THREE.Object3D | undefined,
 }> = (props) => {
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ canvasSize, setCanvasSize, ] = createSignal<THREE.Vector2>();
@@ -40,6 +41,8 @@ uniform vec2 resolution;
 uniform float uFocalLength;
 uniform mat4 viewMatrixInverse;
 uniform mat4 projectionMatrixInverse;
+uniform mat4 uCameraViewMatrix;
+uniform mat4 uCameraProjectionMatrix;
 
 //out vec4 fragColour;
 
@@ -104,6 +107,12 @@ void main(void) {
   vec4 c = vec4(1.0, 1.0, 1.0, 1.0);
   c = vec4(c.rgb * s, c.a);
   gl_FragColor = c;
+  vec4 clipPos = uCameraProjectionMatrix * uCameraViewMatrix * vec4(p, 1.0);
+  float ndcDepth = clipPos.z / clipPos.w;
+  if (ndcDepth < -1.0 || ndcDepth > 1.0) {
+    ndcDepth = 1.0;
+  }
+  gl_FragDepth = (ndcDepth + 1.0) * 0.5;
 }
 `;
   console.log(
@@ -116,11 +125,14 @@ void main(void) {
     uniforms: {
       resolution: { value: new THREE.Vector2(), },
       uFocalLength: { value: 0.0, },
-      viewMatrixInverse: { value: new THREE.Matrix4() },
-      projectionMatrixInverse: { value: new THREE.Matrix4() },
-      cameraPosition: { value: new THREE.Vector3() },
+      viewMatrixInverse: { value: new THREE.Matrix4(), },
+      projectionMatrixInverse: { value: new THREE.Matrix4(), },
+      uCameraViewMatrix: { value: new THREE.Matrix4() },
+      uCameraProjectionMatrix: { value: new THREE.Matrix4() },
+      cameraPosition: { value: new THREE.Vector3(), },
     },
     fragmentShader: fragmentShaderCode,
+    depthWrite: true,
   };
   let brickMapTextures = props.brickMap.initTexturesThreeJs(params);
   let material = new THREE.ShaderMaterial(params);
@@ -149,7 +161,11 @@ void main(void) {
         oribitControls2.update(); 
         material.uniforms.viewMatrixInverse.value.copy(camera2.matrixWorld);
         material.uniforms.projectionMatrixInverse.value.copy(camera2.projectionMatrixInverse);
+        material.uniforms.uCameraViewMatrix.value.copy(camera2.matrixWorldInverse);
+        material.uniforms.uCameraProjectionMatrix.value.copy(camera2.projectionMatrix);
         material.uniforms.cameraPosition.value.copy(camera2.position);
+        //renderer2.clearColor();
+        renderer2.clearDepth();
         fullScreenQuad.render(renderer2);
         renderer2.render(scene, camera2);
         isRendering = false;
@@ -183,6 +199,9 @@ void main(void) {
     }
     let camera2 = new THREE.PerspectiveCamera(
       FOV_Y,
+      1.0,
+      10.0,
+      10000.0,
     );
     camera2.position.set(0, 0, 5000);
     camera2.lookAt(new THREE.Vector3(0.0, 0.0, 0.0));
@@ -241,6 +260,19 @@ void main(void) {
     });
     rerender();
   });
+  createComputed(on(
+    () => props.overlayObject3D,
+    (overlayObject3D) => {
+      if (overlayObject3D == undefined) {
+        return;
+      }
+      scene.add(overlayObject3D);
+      onCleanup(() => {
+        scene.remove(overlayObject3D);
+      });
+      untrack(() => rerender());
+    },
+  ));
   return (
     <canvas
       ref={setCanvas}

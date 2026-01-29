@@ -7,6 +7,7 @@ import { Mode } from './modes/Mode';
 import { ModeParams } from './modes/ModeParams';
 import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
+import { InsertPrimitivesMode } from './modes/InsertPrimitivesMode';
 
 const App: Component = () => {
   let [ state, setState, ] = createStore<{
@@ -39,6 +40,7 @@ const App: Component = () => {
     </Show>
   );
   let disableOrbit = createMemo(() => mode().disableOrbit?.() ?? false);
+  let overlayObject3D = createMemo(() => mode().overlayObject3D?.());
   let [ renderDiv, setRenderDiv, ] = createSignal<HTMLDivElement>();
   let [ isTransformDragging, setTransformDragging, ] = createSignal(false);
   // test data
@@ -178,6 +180,7 @@ const App: Component = () => {
             setRendererViewController(controller);
           }}
           disableOrbit={disableOrbit()}
+          overlayObject3D={overlayObject3D()}
         />
       </div>
       <div
@@ -191,6 +194,12 @@ const App: Component = () => {
         <div>
           <button
             class="btn btn-primary"
+            onClick={() => setMode(InsertPrimitivesMode)}
+          >
+            Insert Primitive
+          </button>
+          <button
+            class="btn btn-primary ml-2"
             onClick={() => setMode(DrawMode)}
           >
             Draw
