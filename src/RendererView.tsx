@@ -38,6 +38,8 @@ precision highp sampler3D;
 uniform vec2 resolution;
 uniform float uFocalLength;
 uniform float uAngle;
+uniform mat4 viewMatrixInverse;
+uniform mat4 projectionMatrixInverse;
 
 //out vec4 fragColour;
 
@@ -84,6 +86,7 @@ vec3 normal(vec3 p) {
 void main(void) {
   float fl = uFocalLength;
   float mn = min(resolution.x, resolution.y);
+  /*
   vec2 uv = (gl_FragCoord.xy - 0.5 * resolution) / mn;
   if (false) {
     gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
@@ -98,13 +101,33 @@ void main(void) {
   float sa = sin(uAngle * acos(-1.0) / 180.0);
   vec3 w = normalize(vec3(sa, 0.0, ca));
   vec3 u = normalize(cross(vec3(0,1,0),w));
-  vec3 v = cross(w,u);
+  vec3 v = cross(w,u);*/
+    // 1. Get UVs from 0.0 to 1.0
+    vec2 uv = gl_FragCoord.xy / resolution;
+
+    // 2. Convert UVs to NDC (-1.0 to 1.0)
+    // We set z to 1.0 to get a point on the far plane
+    vec4 ndc = vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+
+    // 3. Unproject from Clip Space to View Space
+    vec4 viewPos = projectionMatrixInverse * ndc;
+    viewPos /= viewPos.w; // Perspective divide
+
+    // 4. Transform from View Space to World Space
+    // We use viewMatrixInverse to get world direction
+    vec4 worldPos = viewMatrixInverse * viewPos;
+
+    vec3 ro = cameraPosition;
+    vec3 rd = normalize(worldPos.xyz - ro);
+  //vec3 ro = cameraPosition;
+  //vec3 rd = normalize(vDirection);
+  /*
   vec3 ro = vec3(5000.0 * sa, 0.0, 5000.0 * ca);
   vec3 rd = normalize(
     (gl_FragCoord.x - 0.5 * resolution.x) * u +
     (gl_FragCoord.y - 0.5 * resolution.y) * v +
     -fl * w
-  );
+  );*/
   float t = 0.0;
   bool hit = march(ro, rd, t);
   if (!hit) {
@@ -129,6 +152,9 @@ void main(void) {
     uniforms: {
       resolution: { value: new THREE.Vector2(), },
       uFocalLength: { value: 0.0, },
+      viewMatrixInverse: { value: new THREE.Matrix4() },
+      projectionMatrixInverse: { value: new THREE.Matrix4() },
+      cameraPosition: { value: new THREE.Vector3() },
     },
     fragmentShader: fragmentShaderCode,
   };
@@ -152,6 +178,9 @@ void main(void) {
         if (camera2 == undefined) {
           return;
         }
+        material.uniforms.viewMatrixInverse.value.copy(camera2.matrixWorld);
+        material.uniforms.projectionMatrixInverse.value.copy(camera2.projectionMatrixInverse);
+        material.uniforms.cameraPosition.value.copy(camera2.position);
         fullScreenQuad.render(renderer2);
         renderer2.render(scene, camera2);
         isRendering = false;
