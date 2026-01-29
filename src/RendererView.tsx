@@ -99,6 +99,7 @@ void main(void) {
   bool hit = march(ro, rd, t);
   if (!hit) {
     gl_FragColor = vec4(0.2, 0.2, 0.2, 1.0);
+    gl_FragDepth = 1.0; 
     return;
   }
   vec3 p = ro + rd*t;
