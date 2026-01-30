@@ -19,6 +19,7 @@ export class InsertPrimitivesMode implements Mode {
   constructor(params: ModeParams) {
     let [ state, setState, ] = createStore<{
       existingPrimitives: NoTrack<{
+        primitive: Primitive,
         object: THREE.Object3D,
         cleanup: () => void,
       }>[],
@@ -49,6 +50,7 @@ export class InsertPrimitivesMode implements Mode {
             (x) => [
               ...x,
               new NoTrack({
+                primitive: primitive.primitive,
                 object: primitive.object,
                 cleanup: primitive.cleanup,
               }),
@@ -60,6 +62,82 @@ export class InsertPrimitivesMode implements Mode {
       }
     };
     let finished = () => {
+      let sdfs: ((p: THREE.Vector3) => number)[] = [];
+      for (let primitive of state.existingPrimitives) {
+        let primitive2 = primitive.value;
+        let object = primitive2.object;
+        let origin = new THREE.Vector3();
+        let orientation = new THREE.Quaternion();
+        let scale = new THREE.Vector3();
+        object.matrix.decompose(
+          origin,
+          orientation,
+          scale,
+        );
+        let q = new THREE.Quaternion();
+        q.copy(orientation);
+        q.conjugate();
+        let b = new THREE.Vector3(INIT_CUBE_SIZE, INIT_CUBE_SIZE, INIT_CUBE_SIZE).multiply(scale).multiplyScalar(0.5);
+        let p2 = new THREE.Vector3();
+        let q2 = new THREE.Vector3();
+        /*
+        float sdBox( vec3 p, vec3 b )
+        {
+          vec3 q = abs(p) - b;
+          return length(max(q,0.0)) + min(max(q.x,max(q.y,q.z)),0.0);
+        }
+        */
+        let sdf = (p: THREE.Vector3) => {
+          p2.copy(p);
+          p2.sub(origin);
+          p2.applyQuaternion(q);
+          q2.copy(p2);
+          q2.x = Math.abs(q2.x);
+          q2.y = Math.abs(q2.y);
+          q2.z = Math.abs(q2.z);
+          q2.sub(b);
+          let c = Math.min(Math.max(q2.x, q2.y, q2.z), 0.0);
+          q2.x = Math.max(q2.x, 0.0);
+          q2.y = Math.max(q2.y, 0.0);
+          q2.z = Math.max(q2.z, 0.0);
+          return q2.length() + c;
+        };
+        sdfs.push(sdf);
+      }
+      let sdf = (p: THREE.Vector3) => {
+        let d = sdfs[0](p);
+        for (let i = 1; i < sdfs.length; ++i) {
+          d = Math.min(d, sdfs[i](p));
+        }
+        return d;
+      };
+      let sqrt_3 = Math.sqrt(3);
+      let p = new THREE.Vector3();
+      const FOCUS = 256;
+      for (let i = 512 - (FOCUS>>1); i < 512 + (FOCUS>>1); ++i) {
+        let z = (i - 512) * 10.0;
+        for (let j = 512 - (FOCUS>>1); j < 512 + (FOCUS>>1); ++j) {
+          let y = (j - 512) * 10.0;
+          for (let k = 512 - (FOCUS>>1); k < 512 + (FOCUS>>1); ++k) {
+            let x = (k - 512) * 10.0;
+            p.set(x, y, z);
+            let d = sdf(p) / (10.0 * sqrt_3);
+            if (d < -1.0 || d > 1.0) {
+              continue;
+            }
+            let val = 128 - Math.floor(Math.max(-1, Math.min(1, d)) * 127);
+            if (val < 1) val = 1; 
+            if (val > 255) val = 255;
+            params.brickMap.set(
+              k,
+              j,
+              i,
+              val,
+            );
+          }
+        }
+      }
+      params.updateSdf();
       params.endMode();
     };
     let threePrimitive = createMemo(on(
@@ -84,6 +162,7 @@ export class InsertPrimitivesMode implements Mode {
         }
         let mesh = new THREE.Mesh(geo, mat);
         let result = {
+          primitive,
           autoCleanup: true,
           cleanup: () => {
             geo.dispose();
