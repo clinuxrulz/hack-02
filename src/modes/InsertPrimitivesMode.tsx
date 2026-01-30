@@ -152,6 +152,7 @@ export class InsertPrimitivesMode implements Mode {
           boundingBox2.setFromObject(object);
           if (first) {
             boundingBox.copy(boundingBox2);
+            first = false;
           } else {
             boundingBox.union(boundingBox2);
           }
