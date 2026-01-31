@@ -8,6 +8,7 @@ import { ModeParams } from './modes/ModeParams';
 import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
 import { InsertPrimitivesMode } from './modes/InsertPrimitivesMode';
+import { SculptMode } from './modes/SculptMode';
 
 const App: Component = () => {
   let [ state, setState, ] = createStore<{
@@ -31,6 +32,14 @@ const App: Component = () => {
     updateSdf: () => {
       let controller = rendererViewController();
       controller?.onBrickMapChanged();
+    },
+    rerender: () => {
+      let controller = rendererViewController();
+      controller?.rerender();
+    },
+    screenCoordsToRay(screenCoords, out_ray) {
+      let controller = rendererViewController();
+      controller?.screenCoordsToRay(screenCoords, out_ray);
     },
     *getThreeObjectsUnderScreenCoords(screenCoords) {
       let result = rendererViewController()?.getThreeObjectsUnderScreenCoords(screenCoords);
@@ -226,6 +235,12 @@ const App: Component = () => {
             onClick={() => setMode(DrawMode)}
           >
             Draw
+          </button>
+          <button
+            class="btn btn-primary ml-2"
+            onClick={() => setMode(SculptMode)}
+          >
+            Sculpt
           </button>
           <button
             class="btn btn-primary ml-2"

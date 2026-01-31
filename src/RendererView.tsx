@@ -14,6 +14,7 @@ export type RendererViewController = {
   moveTransform: () => void,
   rotateTransform: () => void,
   scaleTransform: () => void,
+  screenCoordsToRay: (screenCoords: THREE.Vector2, out_ray: THREE.Ray) => void,
   getThreeObjectsUnderScreenCoords: (screenCoords: THREE.Vector2) => Generator<THREE.Object3D>,
 };
 
@@ -179,6 +180,8 @@ void main(void) {
       });
     };
   }
+  let _screenCoordsToRay_tmpRaycaster = new THREE.Raycaster();
+  let _screenCoordsToRay_tmpV2 = new THREE.Vector2();
   props.onInit({
     canvasSize,
     onBrickMapChanged() {
@@ -197,6 +200,23 @@ void main(void) {
     scaleTransform() {
       let transformControls2 = transformControls();
       transformControls2?.setMode("scale");
+    },
+    screenCoordsToRay(screenCoords: THREE.Vector2, out_ray: THREE.Ray) {
+      let canvasSize2 = canvasSize();
+      if (canvasSize2 == undefined) {
+        return;
+      }
+      let camera2 = camera();
+      if (camera2 == undefined) {
+        return;
+      }
+      let pt = _screenCoordsToRay_tmpV2.set(
+        (screenCoords.x / canvasSize2.x) * 2.0 - 1.0,
+        -(screenCoords.y / canvasSize2.y) * 2.0 + 1.0,
+      );
+      let raycaster = _screenCoordsToRay_tmpRaycaster;
+      raycaster.setFromCamera(pt, camera2);
+      out_ray.copy(raycaster.ray);
     },
     *getThreeObjectsUnderScreenCoords(screenCoords: THREE.Vector2) {
       let canvasSize2 = canvasSize();
