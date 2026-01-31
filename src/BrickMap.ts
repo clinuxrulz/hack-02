@@ -15,6 +15,9 @@ const MAX_BRICKS = BRICKS_PER_RES * BRICKS_PER_RES * BRICKS_PER_RES;
   // [x, y, z, active, ...]
 const GRID_DATA_SIZE = (GRID_RES * GRID_RES * GRID_RES) * 4
 
+const VOXEL_SIZE = 10.0;
+const HALF_VOLUME_SIZE = (RES >> 1) * VOXEL_SIZE;
+
 export type BrickMapTHREETextures = {
   iTex: THREE.Data3DTexture,
   aTex: THREE.Data3DTexture,
@@ -101,6 +104,102 @@ export class BrickMap {
         }
       }
     }
+  }
+
+  private _march_tmpV3_1 = new THREE.Vector3();
+  march(ro: THREE.Vector3, rd: THREE.Vector3, t: [ number, ]): boolean {
+    const MAX_STEPS = 200;
+    const MIN_DIST = 5.0;
+    const MAX_DIST = 10000.0;
+    t[0] = 0.0;
+    for (let i = 0; i < MAX_STEPS; ++i) {
+      let p = this._march_tmpV3_1.copy(rd).multiplyScalar(t[0]).add(ro);
+      let d = this.map(p, rd);
+      if (d < MIN_DIST) {
+        return true;
+      }
+      t[0] += d;
+      if (t[0] > MAX_DIST) {
+        break;
+      }
+    }
+    return false;
+  }
+
+  private _map_tmpV3_1 = new THREE.Vector3();
+  private _map_tmpV3_2 = new THREE.Vector3();
+  private _map_tmpV3_3 = new THREE.Vector3();
+  private _map_tmpV3_4 = new THREE.Vector3();
+  private _map_tmpV3_5 = new THREE.Vector3();
+  private _map_tmpV3_6 = new THREE.Vector3();
+  private _map_tmpV3_7 = new THREE.Vector3();
+  private _map_tmpV3_8 = new THREE.Vector3();
+  private _map_tmpV4_1 = new THREE.Vector4();
+  map(p: THREE.Vector3, rd: THREE.Vector3): number {
+    let p_local = this._map_tmpV3_1.copy(p).addScalar(HALF_VOLUME_SIZE);
+    let uvw = this._map_tmpV3_2.copy(p_local).multiplyScalar(1.0 / (GRID_RES * BRICK_L_RES * VOXEL_SIZE));
+    let brickInfo = this._map_tmpV4_1;
+    this.readIndirectionTexture01(uvw, brickInfo);
+    let cellLocal = this._map_tmpV3_3.copy(uvw).multiplyScalar(GRID_RES);
+    cellLocal.set(
+      cellLocal.x - Math.floor(cellLocal.x),
+      cellLocal.y - Math.floor(cellLocal.y),
+      cellLocal.z - Math.floor(cellLocal.z),
+    );
+    // _map_tmpV3_[4,5,6,7] used
+    if (brickInfo.w == 0.0) {
+      let p2 = this._map_tmpV3_4.copy(cellLocal).subScalar(0.5);
+      let m = this._map_tmpV3_5.copy(rd);
+      m.x = 1.0 / m.x;
+      m.y = 1.0 / m.y;
+      m.z = 1.0 / m.z;
+      let n = this._map_tmpV3_6.copy(p2).multiply(m);
+      let k = this._map_tmpV3_7.copy(m).multiplyScalar(0.5);
+      k.x = Math.abs(k.x);
+      k.y = Math.abs(k.y);
+      k.z = Math.abs(k.z);
+      let t = this._map_tmpV3_8.copy(n).negate().add(k);
+      let t2 = Math.min(t.x, t.y, t.z);
+      return Math.max(
+        VOXEL_SIZE,
+        t2 * (BRICK_L_RES * VOXEL_SIZE),
+      );
+    }
+    // _map_tmpV3_[4,5,6,7] released
+    let brickBase = this._map_tmpV3_4.copy(brickInfo).multiplyScalar(255.0 * 10.0);
+    // _map_tmpV3_6 used
+    let atlasVoxelPos = this._map_tmpV3_5.copy(brickBase).addScalar(1.0).add(this._map_tmpV3_6.copy(cellLocal).multiplyScalar(8.0));
+    // _map_tmpV3_6 released
+    let atlasUVW = this._map_tmpV3_6.copy(atlasVoxelPos).divideScalar(ATLAS_RES);
+    let val = this.readAtlasTexture01(atlasUVW);
+    return (0.5 - val) * 2.0 * VOXEL_SIZE;
+  }
+
+  private readIndirectionTexture01(uvw: THREE.Vector3, out: THREE.Vector4) {
+    let xIdx = Math.max(0.0, Math.min(GRID_RES-1, Math.floor(uvw.x * GRID_RES)));
+    let yIdx = Math.max(0.0, Math.min(GRID_RES-1, Math.floor(uvw.y * GRID_RES)));
+    let zIdx = Math.max(0.0, Math.min(GRID_RES-1, Math.floor(uvw.z * GRID_RES)));
+    let idx =
+      (
+        (zIdx << (GRID_RES_BITS + GRID_RES_BITS)) |
+        (yIdx << GRID_RES_BITS) |
+        xIdx
+      ) << 2;
+    out.x = this.indirectionData[idx + 0] / 255.0;
+    out.y = this.indirectionData[idx + 1] / 255.0;
+    out.z = this.indirectionData[idx + 2] / 255.0;
+    out.w = this.indirectionData[idx + 3] / 255.0;
+  }
+
+  private readAtlasTexture01(uvw: THREE.Vector3): number {
+    let xIdx = Math.max(0.0, Math.min(ATLAS_RES-1, Math.floor(uvw.x * ATLAS_RES)));
+    let yIdx = Math.max(0.0, Math.min(ATLAS_RES-1, Math.floor(uvw.y * ATLAS_RES)));
+    let zIdx = Math.max(0.0, Math.min(ATLAS_RES-1, Math.floor(uvw.z * ATLAS_RES)));
+    return this.atlasData[
+      (zIdx << (ATLAS_RES_BITS + ATLAS_RES_BITS)) |
+      (yIdx << ATLAS_RES_BITS) |
+      xIdx
+    ] / 255.0;
   }
 
   private ensureBrickAllocated(gx: number, gy: number, gz: number) {
@@ -250,7 +349,6 @@ export class BrickMap {
   }
 
   writeShaderCode(): string {
-    let VOXEL_SIZE = 10.0;
     return (
 `uniform sampler3D uIndirectionTex;
 uniform sampler3D uAtlasTex;
