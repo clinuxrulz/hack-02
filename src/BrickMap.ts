@@ -47,6 +47,24 @@ export class BrickMap {
     return (gz * GRID_RES * GRID_RES) + (gy * GRID_RES) + gx;
   }
 
+  copy(other: BrickMap): this {
+    for (let i = 0; i < this.indirectionData.length; ++i) {
+      this.indirectionData[i] = other.indirectionData[i];
+    }
+    for (let i = 0; i < this.atlasData.length; ++i) {
+      this.atlasData[i] = other.atlasData[i];
+    }
+    this.freeBricks.splice(0, this.freeBricks.length);
+    for (let i = 0; i < other.freeBricks.length; ++i) {
+      this.freeBricks.push(other.freeBricks[i]);
+    }
+    this.brickMap.clear();
+    for (let entry of other.brickMap) {
+      this.brickMap.set(entry[0], entry[1]);
+    }
+    return this;
+  }
+
   get(x: number, y: number, z: number): number {
     const gx = x >> BRICK_L_RES_BITS;
     const gy = y >> BRICK_L_RES_BITS;
