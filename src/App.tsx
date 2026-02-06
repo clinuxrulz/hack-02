@@ -15,10 +15,12 @@ const App: Component = () => {
     mkMode: { new(modeParams: ModeParams): Mode, },
     pointerPos: THREE.Vector2 | undefined,
     pointerDown: boolean,
+    pixelSize: number,
   }>({
     mkMode: IdleMode,
     pointerPos: undefined,
     pointerDown: false,
+    pixelSize: 1,
   });
   let brickMap = new BrickMap();
   let [ rendererViewController, setRendererViewController, ] = createSignal<RendererViewController>();
@@ -213,6 +215,7 @@ const App: Component = () => {
           disableOrbit={disableOrbit()}
           overlayObject3D={overlayObject3D()}
           useTransformControlOnObject3D={useTransformControlOnObject3D()}
+          pixelSize={state.pixelSize}
         />
       </div>
       <div
@@ -266,6 +269,47 @@ const App: Component = () => {
           >
             Scale
           </button>
+          <div class="join">
+            <label class="label">
+              Px
+              <input
+                type="radio"
+                name="PxSize"
+                class="btn btn-sm join-item"
+                aria-label="1x"
+                checked={state.pixelSize == 1}
+                onChange={(e) => {
+                  if (e.currentTarget.checked) {
+                    setState("pixelSize", 1);
+                  }
+                }}
+              />
+              <input
+                type="radio"
+                name="PxSize"
+                class="btn btn-sm join-item"
+                aria-label="2x"
+                checked={state.pixelSize == 2}
+                onChange={(e) => {
+                  if (e.currentTarget.checked) {
+                    setState("pixelSize", 2);
+                  }
+                }}
+              />
+              <input
+                type="radio"
+                name="PxSize"
+                class="btn btn-sm join-item"
+                aria-label="4x"
+                checked={state.pixelSize == 4}
+                onChange={(e) => {
+                  if (e.currentTarget.checked) {
+                    setState("pixelSize", 4);
+                  }
+                }}
+              />
+            </label>
+          </div>
         </div>
         <ModeInstructions/>
       </div>

@@ -25,6 +25,7 @@ const RendererView: Component<{
   disableOrbit: boolean,
   overlayObject3D: THREE.Object3D | undefined,
   useTransformControlOnObject3D: THREE.Object3D | undefined,
+  pixelSize: number,
 }> = (props) => {
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ canvasSize, setCanvasSize, ] = createSignal<THREE.Vector2>();
@@ -284,7 +285,7 @@ void main(void) {
     });
     renderer2.setPixelRatio(window.devicePixelRatio);
     renderer2.autoClear = false;
-    let resizeObserver = new ResizeObserver(() => {
+    let updateSize = () => {
       let rect = canvas2.getBoundingClientRect();
       setCanvasSize(new THREE.Vector2(rect.width, rect.height));
       camera2.aspect = rect.width / rect.height;
@@ -292,14 +293,23 @@ void main(void) {
       let width = rect.width * window.devicePixelRatio;
       let height = rect.height * window.devicePixelRatio;
       let focalLength = 0.5 * height / Math.tan(0.5 * FOV_Y * Math.PI / 180.0);
-      renderer2.setSize(rect.width, rect.height, false);
+      let s = 1.0 / props.pixelSize;
+      renderer2.setSize(s * rect.width, s * rect.height, false);
       material.uniforms.resolution.value.set(
-        width,
-        height,
+        s * width,
+        s * height,
       );
-      material.uniforms.uFocalLength.value = focalLength;
+      material.uniforms.uFocalLength.value = s * focalLength;
       rerender();
+    };
+    let resizeObserver = new ResizeObserver(() => {
+      updateSize();
     });
+    createComputed(on(
+      () => props.pixelSize,
+      () => updateSize(),
+      { defer: true, }
+    ));
     resizeObserver.observe(canvas2);
     onCleanup(() => {
       resizeObserver.unobserve(canvas2);
