@@ -174,12 +174,13 @@ export class InsertPrimitivesMode implements Mode {
             let x = (k - 512) * 10.0;
             p.set(x, y, z);
             let d = sdf(p) / (10.0 * sqrt_3);
-            if (d < -1.0 || d > 1.0) {
-              continue;
-            }
             let val = 128 - Math.floor(Math.max(-1, Math.min(1, d)) * 127);
             if (val < 1) val = 1; 
             if (val > 255) val = 255;
+            val = Math.max(
+              val,
+              params.brickMap.get(k,j,i),
+            );
             params.brickMap.set(
               k,
               j,
