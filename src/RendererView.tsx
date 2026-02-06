@@ -63,11 +63,35 @@ const int MAX_STEPS = 200;
 const float MIN_DIST = 5.0;
 const float MAX_DIST = 10000.0;
 
-bool march(vec3 ro, vec3 rd, out float t) {
+bool negativeMarch(vec3 ro, vec3 rd, out float t) {
+    t = 0.0;
+    for(int i = 0; i < MAX_STEPS; i++) {
+        vec3 p = ro + rd * t;
+        float d = -map(p, rd);
+        
+        if(d < MIN_DIST) {
+            return true;
+        }
+        
+        t += d;
+        
+        if(t > MAX_DIST) {
+            break;
+        }
+    }
+    return false;
+}
+
+bool march(vec3 ro, vec3 rd, out float t, out bool negative) {
     t = 0.0;
     for(int i = 0; i < MAX_STEPS; i++) {
         vec3 p = ro + rd * t;
         float d = map(p, rd);
+
+        if (d < 0.0) {
+            negative = true;
+            return negativeMarch(ro, rd, t);
+        }
         
         if(d < MIN_DIST) {
             return true;
@@ -103,7 +127,8 @@ void main(void) {
   vec3 ro = cameraPosition;
   vec3 rd = normalize(worldPos.xyz - ro);
   float t = 0.0;
-  bool hit = march(ro, rd, t);
+  bool negative = false;
+  bool hit = march(ro, rd, t, negative);
   if (!hit) {
     gl_FragColor = vec4(0.2, 0.2, 0.2, 1.0);
     gl_FragDepth = 1.0; 
@@ -111,6 +136,9 @@ void main(void) {
   }
   vec3 p = ro + rd*t;
   vec3 n = normal(p);
+  if (negative) {
+    n = -n;
+  }
   float s = 0.8*dot(n,normalize(vec3(1,1,1))) + 0.2;
   vec4 c = vec4(1.0, 1.0, 1.0, 1.0);
   c = vec4(c.rgb * s, c.a);
