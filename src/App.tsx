@@ -9,6 +9,7 @@ import { IdleMode } from './modes/IdleMode';
 import { DrawMode } from './modes/DrawMode';
 import { InsertPrimitivesMode } from './modes/InsertPrimitivesMode';
 import { SculptMode } from './modes/SculptMode';
+import { loadScene, saveScene } from './load-save';
 
 const App: Component = () => {
   let [ state, setState, ] = createStore<{
@@ -62,6 +63,7 @@ const App: Component = () => {
   let useTransformControlOnObject3D = createMemo(() => mode().useTransformControlOnObject3D?.());
   let [ renderDiv, setRenderDiv, ] = createSignal<HTMLDivElement>();
   let [ isTransformDragging, setTransformDragging, ] = createSignal(false);
+  let areTransformControlsVisible = createMemo(() => useTransformControlOnObject3D() != undefined);
   // test data
   /*
   function test_sdf(x: number, y: number, z: number) {
@@ -180,6 +182,13 @@ const App: Component = () => {
     let controller = rendererViewController();
     controller?.scaleTransform();
   };
+  let load = async () => {
+    await loadScene("quicksave.dat", brickMap);
+    modeParams.updateSdf();
+  };
+  let save = async () => {
+    await saveScene("quicksave.dat", brickMap);
+  };
   return (
     <div
       style={{
@@ -245,28 +254,36 @@ const App: Component = () => {
           </button>
           <button
             class="btn btn-primary ml-2"
-            onClick={() => spin()}
+            onClick={() => load()}
           >
-            Spin
+            Load
           </button>
           <button
             class="btn btn-primary ml-2"
-            onClick={() => move()}
+            onClick={() => save()}
           >
-            Move
+            Save
           </button>
-          <button
-            class="btn btn-primary ml-2"
-            onClick={() => rotate()}
-          >
-            Rotate
-          </button>
-          <button
-            class="btn btn-primary ml-2"
-            onClick={() => scale()}
-          >
-            Scale
-          </button>
+          <Show when={areTransformControlsVisible()}>
+            <button
+              class="btn btn-primary ml-2"
+              onClick={() => move()}
+            >
+              Move
+            </button>
+            <button
+              class="btn btn-primary ml-2"
+              onClick={() => rotate()}
+            >
+              Rotate
+            </button>
+            <button
+              class="btn btn-primary ml-2"
+              onClick={() => scale()}
+            >
+              Scale
+            </button>
+          </Show>
           <div class="join">
             <label class="label">
               Px

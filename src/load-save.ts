@@ -21,8 +21,8 @@ export class ReaderHelper {
         this.leftOver = data.value;
       }
       let loLen = this.leftOver.length - this.leftOverOffset;
-      let m = Math.min(loLen, len);
-      buffer.set(this.leftOver.subarray(this.leftOverOffset, m), at);
+      let m = Math.min(loLen, max - at);
+      buffer.set(this.leftOver.subarray(this.leftOverOffset, this.leftOverOffset + m), at);
       if (m == loLen) {
         this.leftOver = undefined;
         this.leftOverOffset = 0;
@@ -37,25 +37,21 @@ export class ReaderHelper {
   private readBuffer = new Uint8Array(16);
 
   async readU16(): Promise<number> {
-    this.read(this.readBuffer, 0, 2);
+    await this.read(this.readBuffer, 0, 2);
     return this.readBuffer[0] | (this.readBuffer[1] << 8);
   }
 }
 
 async function loadFromReader(version: number, reader: ReadableStreamDefaultReader<Uint8Array>, brickMap: BrickMap) {
   let reader2 = new ReaderHelper(reader);
-  brickMap.load(reader2);
+  await brickMap.load(reader2);
 }
 
 async function saveToWriter(version: number, writer: WritableStreamDefaultWriter<BufferSource>, brikMap: BrickMap) {
-  let buffer = new Uint8Array(16);
-  buffer[0] = version & 0xFF;
-  buffer[1] = (version >> 8) & 0xFF;
-  await writer.write(buffer);
-  brikMap.save(writer);
+  await brikMap.save(writer);
 }
 
-export async function load(readable: ReadableStream<Uint8Array>, brickMap: BrickMap) {
+async function loadFromReadable(readable: ReadableStream<Uint8Array>, brickMap: BrickMap) {
   let reader = readable.getReader();
   let version: number;
   let leftOver: Uint8Array | undefined;
@@ -70,22 +66,28 @@ export async function load(readable: ReadableStream<Uint8Array>, brickMap: Brick
   }
   let decompressedStream = new ReadableStream({
     async start(controller) {
-      if (leftOver != undefined) {
-        controller.enqueue(leftOver);
+      try {
+        if (leftOver != undefined) {
+          controller.enqueue(leftOver);
+        }
+        while (true) {
+          let { value: chunk, done: chunkDone } = await reader.read();
+          if (chunkDone) break;
+          controller.enqueue(chunk);
+        }
+        controller.close();
+      } catch (e) {
+        controller.error(e);
+      } finally {
+        reader.releaseLock();
       }
-      while (true) {
-        let { value: chunk, done: chunkDone } = await reader.read();
-        if (chunkDone) break;
-        controller.enqueue(chunk);
-      }
-      controller.close();
     }
   }).pipeThrough(new DecompressionStream("gzip"));
   let decompressReader = decompressedStream.getReader();
   await loadFromReader(version, decompressReader, brickMap);
 }
 
-export async function save(writable: WritableStream<Uint8Array>, brickMap: BrickMap) {
+async function saveToWritable(writable: WritableStream<Uint8Array>, brickMap: BrickMap) {
   let version = 1;
   let versionBuffer = new Uint8Array([version & 0xFF, (version >> 8) & 0xFF]);
   {
@@ -94,7 +96,44 @@ export async function save(writable: WritableStream<Uint8Array>, brickMap: Brick
     writer.releaseLock();
   }
   let cs = new CompressionStream("gzip");
-  let savePromise = saveToWriter(version, cs.writable.getWriter(), brickMap);
+  let csWriter = cs.writable.getWriter();
+  let savePromise = (async () => {
+    await saveToWriter(version, csWriter, brickMap);
+    await csWriter.close();
+  })();
   await cs.readable.pipeTo(writable);
   await savePromise;
+}
+
+export async function loadScene(fileName: string, brickMap: BrickMap): Promise<boolean> {
+  let dir = await navigator.storage.getDirectory();
+  let fileHandle: FileSystemFileHandle;
+  try {
+    fileHandle = await dir.getFileHandle(fileName);
+  } catch (ex) {
+    if (ex instanceof DOMException) {
+      if (ex.name == "NotFoundError") {
+        return false;
+      }
+    }
+    throw ex;
+  }
+  let file = await fileHandle.getFile();
+  let readable = await file.stream();
+  await loadFromReadable(readable, brickMap);
+  // stats
+  console.log("File size:", file.size);
+  //
+  return true;
+}
+
+export async function saveScene(fileName: string, brickMap: BrickMap) {
+  let dir = await navigator.storage.getDirectory();
+  let fileHandle = await dir.getFileHandle(fileName, { create: true, });
+  let writable = await fileHandle.createWritable();
+  await saveToWritable(writable, brickMap);
+  // stats
+  let file = await fileHandle.getFile();
+  console.log("File size:", file.size);
+  //
 }
