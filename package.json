@@ -15,12 +15,12 @@
     "typescript": "^5.7.2",
     "vite": "^7.1.4",
     "vite-plugin-solid": "file:./tmp/vite-plugin-solid-local",
-    "babel-plugin-jsx-dom-expressions": "0.41.0-next.8",
-    "babel-preset-solid": "2.0.0-experimental.15"
+    "babel-plugin-jsx-dom-expressions": "0.41.0-next.11",
+    "babel-preset-solid": "2.0.0-beta.3"
   },
   "dependencies": {
-    "solid-js": "2.0.0-beta.2",
-    "@solidjs/web": "2.0.0-beta.2",
+    "solid-js": "2.0.0-beta.3",
+    "@solidjs/web": "2.0.0-beta.3",
     "three": "^0.183.2"
   }
 }
