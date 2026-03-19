@@ -120,7 +120,7 @@ export class Joystick {
             "width": `${this.outerRingSize[0]()}px`,
             "height": `${this.outerRingSize[0]()}px`,
             "border-radius": `${0.5 * this.outerRingSize[0]() + 2.5}px`,
-            "border": "5px solid white"
+            "border": "5px solid rgba(255,255,255,0.5)"
           }}
         >
           <div
@@ -132,7 +132,7 @@ export class Joystick {
               "width": `${this.knobSize[0]()}px`,
               "height": `${this.knobSize[0]()}px`,
               "border-radius": `${0.5 * this.knobSize[0]()}px`,
-              "background-color": "white",
+              "background-color": "rgba(255,255,255,0.5)",
             }}
           >
           </div>
