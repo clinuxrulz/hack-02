@@ -5,6 +5,7 @@ import { Joystick } from "./Joystick";
 import { World } from "./World";
 import { Player } from "./Player";
 import { Court } from "./Court";
+import { Ball } from "./Ball";
 
 let [ canvasSize, setCanvasSize, ] = createSignal<THREE.Vector2>();
 
@@ -19,6 +20,10 @@ let world = new World({
     width: 4.0,
     length: 6.0,
     netHeight: 0.5,
+  }),
+  ball: Ball({
+    position: createMemo(() => new THREE.Vector3(0.0, 1.0, 1.0)),
+    size: createMemo(() => 1),
   }),
 });
 

@@ -1,13 +1,16 @@
 import { type Accessor, createSignal, createMemo, latest, type Signal } from "solid-js";
 import { Player } from "./Player";
 import { Court } from "./Court";
+import { Ball } from "./Ball";
 import * as THREE from "three";
+import { when } from "./util";
 
 namespace World {
   export type Params = {
     player1?: Player,
     player2?: Player,
     court?: Court,
+    ball?: ReturnType<typeof Ball>,
   };
 }
 
@@ -15,11 +18,13 @@ export class World {
   readonly player1: Signal<Player | undefined>;
   readonly player2: Signal<Player | undefined>;
   readonly court: Signal<Court | undefined>;
+  readonly ball: Signal<ReturnType<typeof Ball> | undefined>;
 
   constructor(params: World.Params) {
     this.player1 = createSignal(params.player1);
     this.player2 = createSignal(params.player2);
     this.court = createSignal(params.court);
+    this.ball = createSignal(params.ball);
   }
 
   update(dt: number) {
@@ -57,5 +62,11 @@ export class World {
       let court = this.court[0] as Accessor<NonNullable<ReturnType<typeof this.court[0]>>>;
       createMemo(() => court().render(target));
     });
+    when(
+      this.ball[0],
+      (ball) => {
+        createMemo(() => ball().render(target));
+      },
+    );
   }
 }

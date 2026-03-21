@@ -1,3 +1,5 @@
+import { type Accessor, createMemo, untrack } from "solid-js";
+
 export function mkSetProtector<A>(
   setter: (x: A) => void,
 ): (x: A) => void {
@@ -15,4 +17,15 @@ export function mkSetProtector<A>(
       value = undefined;
     });
   };
+}
+
+export function when<A,B>(a: Accessor<A | undefined>, fn: (a: Accessor<A>) => B): Accessor<B | undefined> {
+  let hasA = createMemo(() => a() != undefined);
+  return createMemo(() => {
+    if (!hasA()) {
+      return undefined;
+    }
+    let a2 = a as Accessor<NonNullable<ReturnType<typeof a>>>;
+    return untrack(() => fn(a2));
+  });
 }
