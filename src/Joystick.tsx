@@ -15,10 +15,13 @@ export class Joystick {
   hitAreaSize: Signal<number>;
   outerRingSize: Signal<number>;
   knobSize: Signal<number>;
-  dragOffset: Signal<THREE.Vector2 | undefined>;
+  dragOffset = createSignal<THREE.Vector2>();
   value: Accessor<THREE.Vector2>;
 
   constructor(params: Joystick.Params) {
+    this.value = createMemo(() =>
+      this.dragOffset[0]() ?? new THREE.Vector2()
+    );
     if (typeof params.position == "function") {
       this.position = createSignal(params.position);
     } else {
@@ -31,21 +34,23 @@ export class Joystick {
     }
     this.outerRingSize = createSignal(params.outerRingSize);
     this.knobSize = createSignal(params.knobSize);
-    this.dragOffset = createSignal();
-    this.value = createMemo(() => {
-      let dragOffset2 = this.dragOffset[0]();
-      if (dragOffset2 == undefined) {
-        return new THREE.Vector2();
-      }
-      return new THREE.Vector2().copy(dragOffset2).multiplyScalar(1.0 / this.outerRingSize[0]());
-    });
   }
 
   UI: Component = () => {
     let [ dragging, setDragging, ] = createSignal(false);
     let [ startPos, setStartPos, ] = createSignal<THREE.Vector2>();
-    let [ dragOffset, setDragOffset, ] = this.dragOffset;
     let [ hitDiv, setHitDiv, ] = createSignal<HTMLDivElement>();
+    let virtualDragOffset = createMemo(() => {
+      let dragOffset2 = this.dragOffset[0]();
+      if (dragOffset2 == undefined) {
+        return undefined;
+      }
+      let len = dragOffset2.length();
+      if (len < this.outerRingSize[0]()) {
+        return dragOffset2;
+      }
+      return new THREE.Vector2().copy(dragOffset2).multiplyScalar(this.outerRingSize[0]() / len);
+    });
     let dragPointerId: number | undefined = undefined;
     let hitAreaOnPointerDown = (e: PointerEvent) => {
       let div = hitDiv();
@@ -59,7 +64,7 @@ export class Joystick {
         e.clientX - rect.left,
         e.clientY - rect.top,
       ));
-      setDragOffset(new THREE.Vector2());
+      this.dragOffset[1](new THREE.Vector2());
     };
     let hitAreaOnPointerMove = (e: PointerEvent) => {
       let div = hitDiv();
@@ -76,11 +81,7 @@ export class Joystick {
         e.clientX - rect.left - startPos2.x,
         e.clientY - rect.top - startPos2.y,
       );
-      let len = offset.length();
-      if (len > 0.5 * this.outerRingSize[0]()) {
-        offset.multiplyScalar(0.5 * this.outerRingSize[0]() / len);
-      }
-      setDragOffset(offset);
+      this.dragOffset[1](offset);
     };
     let hitAreaOnPointerUp = (e: PointerEvent) => {
       let div = hitDiv();
@@ -90,8 +91,10 @@ export class Joystick {
       if (dragPointerId == undefined) {
         return;
       }
+      div.releasePointerCapture(dragPointerId);
+      dragPointerId = undefined;
       setStartPos(undefined);
-      setDragOffset(undefined);
+      this.dragOffset[1](undefined);
     };
     return (
       <div
@@ -120,19 +123,19 @@ export class Joystick {
             "width": `${this.outerRingSize[0]()}px`,
             "height": `${this.outerRingSize[0]()}px`,
             "border-radius": `${0.5 * this.outerRingSize[0]() + 2.5}px`,
-            "border": "5px solid rgba(255,255,255,0.5)"
+            "border": "5px solid white"
           }}
         >
           <div
             style={{
               "position": "absolute",
-              "left": `${0.5 * this.outerRingSize[0]() + (dragOffset()?.x ?? 0.0)}px`,
-              "top": `${0.5 * this.outerRingSize[0]() + (dragOffset()?.y ?? 0.0)}px`,
+              "left": `${0.5 * this.outerRingSize[0]() + (this.dragOffset[0]()?.x ?? 0.0)}px`,
+              "top": `${0.5 * this.outerRingSize[0]() + (this.dragOffset[0]()?.y ?? 0.0)}px`,
               "transform": "translate(-50%,-50%)",
               "width": `${this.knobSize[0]()}px`,
               "height": `${this.knobSize[0]()}px`,
               "border-radius": `${0.5 * this.knobSize[0]()}px`,
-              "background-color": "rgba(255,255,255,0.5)",
+              "background-color": "white",
             }}
           >
           </div>

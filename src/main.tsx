@@ -29,18 +29,6 @@ let [ rightDown, setRightDown, ] = createSignal(false);
 let [ jumpDown, setJumpDown, ] = createSignal(false);
 
 function App() {
-  let joystickHitAreaSize = 150;
-  let joystick = new Joystick({
-    position: createMemo(() =>
-      new THREE.Vector2(
-        50.0,
-        (canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize,
-      )
-    ),
-    hitAreaSize: joystickHitAreaSize,
-    outerRingSize: () => 0.8 * joystickHitAreaSize,
-    knobSize: () => 70,
-  });
   let animating = createMemo(() => {
     if (jumpDown()) {
       return true;
@@ -56,9 +44,21 @@ function App() {
         return true;
       }
     }
-    return upDown() || downDown() || leftDown() || rightDown() || joystick.value().x != 0.0 || joystick.value().y != 0.0;
+    return upDown() || downDown() || leftDown() || rightDown();
   }); 
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
+  let joystickHitAreaSize = 150;
+  let joystick = new Joystick({
+    position: createMemo(() =>
+      new THREE.Vector2(
+        50.0,
+        (canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize,
+      )
+    ),
+    hitAreaSize: joystickHitAreaSize,
+    outerRingSize: () => 0.8 * joystickHitAreaSize,
+    knobSize: () => 70,
+  });
   createEffect(canvas, (canvas: HTMLCanvasElement | undefined) => {
     if (canvas == undefined) {
       return;
@@ -131,8 +131,6 @@ function App() {
         if (upDown()) {
           newPos.z -= 0.1;
         }
-        newPos.x += joystick.value().x * 0.1;
-        newPos.z += joystick.value().y * 0.1;
         if (newPos.y == 0.0) {
           if (jumpDown()) {
             newVel.y = 15.0;
