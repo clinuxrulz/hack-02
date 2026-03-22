@@ -26,7 +26,7 @@ let world = World({
     size: createMemo(() => 0.1),
     boundary: createMemo(() =>
       new THREE.Box3(
-        new THREE.Vector3(-2.0, -3.0, -3.0),
+        new THREE.Vector3(-2.0, 0.0, -3.0),
         new THREE.Vector3(2.0, 3.0, 3.0),
       ),
     ),
