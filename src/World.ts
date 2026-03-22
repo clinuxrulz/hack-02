@@ -1,41 +1,37 @@
 import { type Accessor, createSignal, createMemo, latest, type Signal } from "solid-js";
-import { Player } from "./Player";
-import { Court } from "./Court";
-import { Ball } from "./Ball";
+import { type Player } from "./Player";
+import { type Court } from "./Court";
+import { type Ball } from "./Ball";
 import * as THREE from "three";
 import { when } from "./util";
 
-namespace World {
-  export type Params = {
-    player1?: Player,
-    player2?: Player,
-    court?: Court,
-    ball?: ReturnType<typeof Ball>,
-  };
-}
+export function World(params: {
+  player1?: ReturnType<typeof Player>,
+  player2?: ReturnType<typeof Player>,
+  court?: ReturnType<typeof Court>,
+  ball?: ReturnType<typeof Ball>,
+}): {
+  player1: Signal<ReturnType<typeof Player> | undefined>,
+  player2: Signal<ReturnType<typeof Player> | undefined>,
+  court: Signal<ReturnType<typeof Court> | undefined>,
+  ball: Signal<ReturnType<typeof Ball> | undefined>,
+  update: (dt: number) => void,
+  render: (target: THREE.Object3D) => void,
+} {
+  let player1 = createSignal(params.player1);
+  let player2 = createSignal(params.player2);
+  let court = createSignal(params.court);
+  let ball = createSignal(params.ball);
 
-export class World {
-  readonly player1: Signal<Player | undefined>;
-  readonly player2: Signal<Player | undefined>;
-  readonly court: Signal<Court | undefined>;
-  readonly ball: Signal<ReturnType<typeof Ball> | undefined>;
-
-  constructor(params: World.Params) {
-    this.player1 = createSignal(params.player1);
-    this.player2 = createSignal(params.player2);
-    this.court = createSignal(params.court);
-    this.ball = createSignal(params.ball);
-  }
-
-  update(dt: number) {
-    let player1 = this.player1[0]();
-    let court = this.court[0]();
-    if (player1 != undefined) {
-      let pos = player1.position;
+  let update = (dt: number) => {
+    let p1 = player1[0]();
+    let c = court[0]();
+    if (p1 != undefined) {
+      let pos = p1.position;
       let newPos = latest(pos[0]).clone();
-      if (court != undefined) {
-        let courtWidth = court.width[0]();
-        let courtLength = court.length[0]();
+      if (c != undefined) {
+        let courtWidth = c.width[0]();
+        let courtLength = c.length[0]();
         if (newPos.x < -0.5 * courtWidth + 0.25) {
           newPos.x = -0.5 * courtWidth + 0.25;
         }
@@ -51,22 +47,28 @@ export class World {
       }
       pos[1](newPos);
     }
-  }
+  };
 
-  render(target: THREE.Object3D) {
-    let hasCourt = createMemo(() => this.court[0]() != undefined);
+  let render = (target: THREE.Object3D) => {
+    let hasCourt = createMemo(() => court[0]() != undefined);
     createMemo(() => {
       if (!hasCourt()) {
         return;
       }
-      let court = this.court[0] as Accessor<NonNullable<ReturnType<typeof this.court[0]>>>;
-      createMemo(() => court().render(target));
+      let c = court[0] as Accessor<NonNullable<ReturnType<typeof court[0]>>>;
+      createMemo(() => c().render(target));
     });
-    when(
-      this.ball[0],
-      (ball) => {
-        createMemo(() => ball().render(target));
-      },
-    );
-  }
+    when(ball[0], (b) => {
+      createMemo(() => b().render(target));
+    });
+  };
+
+  return {
+    player1,
+    player2,
+    court,
+    ball,
+    update,
+    render,
+  };
 }

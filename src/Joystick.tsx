@@ -1,50 +1,37 @@
 import { createSignal, createMemo, type Accessor, type Component, type Signal } from "solid-js";
 import * as THREE from "three";
 
-namespace Joystick {
-  export type Params = {
-    position: THREE.Vector2 | Accessor<THREE.Vector2>,
-    hitAreaSize: number | Accessor<number>,
-    outerRingSize: Accessor<number>,
-    knobSize: Accessor<number>,
-  };
-}
-
-export class Joystick {
-  position: Signal<THREE.Vector2>;
-  hitAreaSize: Signal<number>;
-  outerRingSize: Signal<number>;
-  knobSize: Signal<number>;
-  dragOffset: Signal<THREE.Vector2 | undefined>;
-  value: Accessor<THREE.Vector2>;
-
-  constructor(params: Joystick.Params) {
-    if (typeof params.position == "function") {
-      this.position = createSignal(params.position);
-    } else {
-      this.position = createSignal(params.position);
+export function Joystick(params: {
+  position: THREE.Vector2 | Accessor<THREE.Vector2>,
+  hitAreaSize: number | Accessor<number>,
+  outerRingSize: Accessor<number>,
+  knobSize: Accessor<number>,
+}): {
+  position: Signal<THREE.Vector2>,
+  hitAreaSize: Signal<number>,
+  outerRingSize: Signal<number>,
+  knobSize: Signal<number>,
+  dragOffset: Signal<THREE.Vector2 | undefined>,
+  value: Accessor<THREE.Vector2>,
+  UI: Component,
+} {
+  let position = createSignal(typeof params.position === "function" ? params.position() : params.position);
+  let hitAreaSize = createSignal(typeof params.hitAreaSize === "function" ? params.hitAreaSize() : params.hitAreaSize);
+  let outerRingSize = createSignal(params.outerRingSize);
+  let knobSize = createSignal(params.knobSize);
+  let dragOffset = createSignal<THREE.Vector2 | undefined>();
+  let value = createMemo(() => {
+    let dragOffset2 = dragOffset[0]();
+    if (dragOffset2 == undefined) {
+      return new THREE.Vector2();
     }
-    if (typeof params.hitAreaSize == "function") {
-      this.hitAreaSize = createSignal(params.hitAreaSize);
-    } else {
-      this.hitAreaSize = createSignal(params.hitAreaSize);
-    }
-    this.outerRingSize = createSignal(params.outerRingSize);
-    this.knobSize = createSignal(params.knobSize);
-    this.dragOffset = createSignal();
-    this.value = createMemo(() => {
-      let dragOffset2 = this.dragOffset[0]();
-      if (dragOffset2 == undefined) {
-        return new THREE.Vector2();
-      }
-      return new THREE.Vector2().copy(dragOffset2).multiplyScalar(1.0 / this.outerRingSize[0]());
-    });
-  }
+    return new THREE.Vector2().copy(dragOffset2).multiplyScalar(1.0 / outerRingSize[0]());
+  });
 
-  UI: Component = () => {
+  let UI: Component = () => {
     let [ dragging, setDragging, ] = createSignal(false);
     let [ startPos, setStartPos, ] = createSignal<THREE.Vector2>();
-    let [ dragOffset, setDragOffset, ] = this.dragOffset;
+    let [ dragOffset2, setDragOffset, ] = dragOffset;
     let [ hitDiv, setHitDiv, ] = createSignal<HTMLDivElement>();
     let dragPointerId: number | undefined = undefined;
     let hitAreaOnPointerDown = (e: PointerEvent) => {
@@ -77,8 +64,8 @@ export class Joystick {
         e.clientY - rect.top - startPos2.y,
       );
       let len = offset.length();
-      if (len > 0.5 * this.outerRingSize[0]()) {
-        offset.multiplyScalar(0.5 * this.outerRingSize[0]() / len);
+      if (len > 0.5 * outerRingSize[0]()) {
+        offset.multiplyScalar(0.5 * outerRingSize[0]() / len);
       }
       setDragOffset(offset);
     };
@@ -98,13 +85,12 @@ export class Joystick {
         ref={setHitDiv}
         style={{
           "position": "absolute",
-          "left": `${this.position[0]().x}px`,
-          "top": `${this.position[0]().y}px`,
-          "width": `${this.hitAreaSize[0]()}px`,
-          "height": `${this.hitAreaSize[0]()}px`,
+          "left": `${position[0]().x}px`,
+          "top": `${position[0]().y}px`,
+          "width": `${hitAreaSize[0]()}px`,
+          "height": `${hitAreaSize[0]()}px`,
           "user-select": "none",
           "touch-action": "none",
-          //"background-color": "red",
         }}
         onPointerDown={hitAreaOnPointerDown}
         onPointerMove={hitAreaOnPointerMove}
@@ -114,24 +100,24 @@ export class Joystick {
         <div
           style={{
             "position": "absolute",
-            "left": `${startPos()?.x ?? 0.5 * this.hitAreaSize[0]()}px`,
-            "top": `${startPos()?.y ?? 0.5 * this.hitAreaSize[0]()}px`,
+            "left": `${startPos()?.x ?? 0.5 * hitAreaSize[0]()}px`,
+            "top": `${startPos()?.y ?? 0.5 * hitAreaSize[0]()}px`,
             "transform": "translate(-50%, -50%)",
-            "width": `${this.outerRingSize[0]()}px`,
-            "height": `${this.outerRingSize[0]()}px`,
-            "border-radius": `${0.5 * this.outerRingSize[0]() + 2.5}px`,
+            "width": `${outerRingSize[0]()}px`,
+            "height": `${outerRingSize[0]()}px`,
+            "border-radius": `${0.5 * outerRingSize[0]() + 2.5}px`,
             "border": "5px solid rgba(255,255,255,0.5)"
           }}
         >
           <div
             style={{
               "position": "absolute",
-              "left": `${0.5 * this.outerRingSize[0]() + (dragOffset()?.x ?? 0.0)}px`,
-              "top": `${0.5 * this.outerRingSize[0]() + (dragOffset()?.y ?? 0.0)}px`,
+              "left": `${0.5 * outerRingSize[0]() + (dragOffset2()?.x ?? 0.0)}px`,
+              "top": `${0.5 * outerRingSize[0]() + (dragOffset2()?.y ?? 0.0)}px`,
               "transform": "translate(-50%,-50%)",
-              "width": `${this.knobSize[0]()}px`,
-              "height": `${this.knobSize[0]()}px`,
-              "border-radius": `${0.5 * this.knobSize[0]()}px`,
+              "width": `${knobSize[0]()}px`,
+              "height": `${knobSize[0]()}px`,
+              "border-radius": `${0.5 * knobSize[0]()}px`,
               "background-color": "rgba(255,255,255,0.5)",
             }}
           >
@@ -139,5 +125,15 @@ export class Joystick {
         </div>
       </div>
     );
+  };
+
+  return {
+    position,
+    hitAreaSize,
+    outerRingSize,
+    knobSize,
+    dragOffset,
+    value,
+    UI,
   };
 }

@@ -11,12 +11,12 @@ let [ canvasSize, setCanvasSize, ] = createSignal<THREE.Vector2>();
 
 let gravity = new THREE.Vector3(0.0, -100, 0.0);
 
-let world = new World({
-  player1: new Player({
+let world = World({
+  player1: Player({
     position: new THREE.Vector3(0.0, 0.0, 2.5),
     velocity: new THREE.Vector3(0.0, 0.0, 0.0),
   }),
-  court: new Court({
+  court: Court({
     width: 4.0,
     length: 6.0,
     netHeight: 0.5,
@@ -35,7 +35,7 @@ let [ jumpDown, setJumpDown, ] = createSignal(false);
 
 function App() {
   let joystickHitAreaSize = 150;
-  let joystick = new Joystick({
+  let joystick = Joystick({
     position: createMemo(() =>
       new THREE.Vector2(
         50.0,
