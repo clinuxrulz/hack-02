@@ -47,6 +47,7 @@ export function World(params: {
       }
       pos[1](newPos);
     }
+    ball[0]()?.update(dt);
   };
 
   let render = (target: THREE.Object3D) => {

@@ -6,8 +6,9 @@ export function Ball(params: {
   size: Accessor<number>,
 }): {
   render: (target: THREE.Object3D) => void,
+  update: (dt: number) => void,
 } {
-  let position = createSignal(params.position);
+  let position = createSignal(params.position, undefined, { equals: false, });
   let render = (target: THREE.Object3D) => {
     let geometry = new THREE.SphereGeometry(params.size());
     let material = new THREE.MeshNormalMaterial();
@@ -23,8 +24,11 @@ export function Ball(params: {
       },
     );
   };
-  
+  let update = (dt: number) => {
+    position[1]((x) => x.addScalar(0.01)); /*new THREE.Vector3().copy(x).addScalar(0.01));*/
+  };
   return {
     render,
+    update,
   };
 }

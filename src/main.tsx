@@ -23,7 +23,7 @@ let world = World({
   }),
   ball: Ball({
     position: createMemo(() => new THREE.Vector3(0.0, 1.0, 1.0)),
-    size: createMemo(() => 1),
+    size: createMemo(() => 0.1),
   }),
 });
 
@@ -50,6 +50,7 @@ function App() {
     //alert((canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize);
   });
   let animating = createMemo(() => {
+    return true;
     if (jumpDown()) {
       return true;
     }
