@@ -39,12 +39,15 @@ function App() {
     position: createMemo(() =>
       new THREE.Vector2(
         50.0,
-        (canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize,
+        166,///(canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize,
       )
     ),
     hitAreaSize: joystickHitAreaSize,
     outerRingSize: () => 0.8 * joystickHitAreaSize,
     knobSize: () => 70,
+  });
+  createMemo(() => {
+    //alert((canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize);
   });
   let animating = createMemo(() => {
     if (jumpDown()) {

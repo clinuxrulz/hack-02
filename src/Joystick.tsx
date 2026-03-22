@@ -2,7 +2,7 @@ import { createSignal, createMemo, type Accessor, type Component, type Signal } 
 import * as THREE from "three";
 
 export function Joystick(params: {
-  position: THREE.Vector2 | Accessor<THREE.Vector2>,
+  position: Accessor<THREE.Vector2>,
   hitAreaSize: number | Accessor<number>,
   outerRingSize: Accessor<number>,
   knobSize: Accessor<number>,
@@ -15,7 +15,7 @@ export function Joystick(params: {
   value: Accessor<THREE.Vector2>,
   UI: Component,
 } {
-  let position = createSignal(typeof params.position === "function" ? params.position() : params.position);
+  let position = createSignal(params.position);
   let hitAreaSize = createSignal(typeof params.hitAreaSize === "function" ? params.hitAreaSize() : params.hitAreaSize);
   let outerRingSize = createSignal(params.outerRingSize);
   let knobSize = createSignal(params.knobSize);
