@@ -4,11 +4,13 @@ import * as THREE from "three";
 export function Ball(params: {
   position: Accessor<THREE.Vector3>,
   size: Accessor<number>,
+  boundary: Accessor<THREE.Box3>,
 }): {
   render: (target: THREE.Object3D) => void,
   update: (dt: number) => void,
 } {
   let position = createSignal(params.position, undefined, { equals: false, });
+  let velocity = createSignal(new THREE.Vector3(1.0, 1.0, 1.0).multiplyScalar(0.001), { equals: false, });
   let render = (target: THREE.Object3D) => {
     let geometry = new THREE.SphereGeometry(params.size());
     let material = new THREE.MeshNormalMaterial();
@@ -23,9 +25,24 @@ export function Ball(params: {
         mesh.position.copy(position);
       },
     );
+    {
+      let box = params.boundary();
+      let geometry = new THREE.BoxGeometry(box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
+      let material = new THREE.MeshNormalMaterial({
+        transparent: true,
+        opacity: 0.5,
+        side: THREE.BackSide,
+      });
+      let mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(0.5 * (box.min.x + box.max.x), 0.5 * (box.min.y + box.max.y), 0.5 * (box.min.z + box.max.z));
+      target.add(mesh);
+      onCleanup(() => {
+        target.remove(mesh);
+      });
+    }
   };
   let update = (dt: number) => {
-    position[1]((x) => x.addScalar(0.01)); /*new THREE.Vector3().copy(x).addScalar(0.01));*/
+    position[1]((x) => x.add(velocity[0]()));
   };
   return {
     render,
