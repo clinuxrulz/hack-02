@@ -5,12 +5,13 @@ export function Ball(params: {
   position: Accessor<THREE.Vector3>,
   size: Accessor<number>,
   boundary: Accessor<THREE.Box3>,
+  gravity: Accessor<THREE.Vector3>,
 }): {
   render: (target: THREE.Object3D) => void,
   update: (dt: number) => void,
 } {
   let position = createSignal(params.position, undefined, { equals: false, });
-  let velocity = createSignal(new THREE.Vector3(1.0, 1.0, 1.0).multiplyScalar(0.002), { equals: false, });
+  let velocity = createSignal(new THREE.Vector3(1.0, 1.0, 1.0).multiplyScalar(0.01), { equals: false, });
   let render = (target: THREE.Object3D) => {
     let geometry = new THREE.SphereGeometry(params.size());
     let material = new THREE.MeshNormalMaterial();
@@ -41,11 +42,15 @@ export function Ball(params: {
       });
     }
   };
-  let tmpV = new THREE.Vector3();
+  let tmpV1 = new THREE.Vector3();
   let update = (dt: number) => {
-    tmpV.copy(velocity[0]()).multiplyScalar(dt);
-    let newPos = position[0]().add(tmpV);
     let newVel = velocity[0]();
+    tmpV1.set(0.0, -0.005, 0.0);
+    tmpV1.multiplyScalar(dt);
+    newVel.add(tmpV1);
+    tmpV1.copy(newVel);
+    tmpV1.multiplyScalar(dt);
+    let newPos = position[0]().add(tmpV1);
     let b = params.boundary();
     if (newPos.x < b.min.x) {
       newVel.x = Math.abs(newVel.x);

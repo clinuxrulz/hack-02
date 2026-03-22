@@ -30,6 +30,7 @@ let world = World({
         new THREE.Vector3(2.0, 2.5, 3.0),
       ),
     ),
+    gravity: () => gravity,
   }),
 });
 
