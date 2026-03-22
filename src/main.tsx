@@ -46,7 +46,7 @@ function App() {
     position: createMemo(() =>
       new THREE.Vector2(
         50.0,
-        166,///(canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize,
+        (canvasSize()?.y ?? 0) - 50 - joystickHitAreaSize,
       )
     ),
     hitAreaSize: joystickHitAreaSize,
