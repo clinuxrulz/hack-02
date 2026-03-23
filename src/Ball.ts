@@ -54,22 +54,23 @@ export function Ball(params: {
     tmpV1.multiplyScalar(dt);
     let newPos = position[0]().add(tmpV1);
     let b = params.boundary();
-    if (newPos.x < b.min.x) {
+    let r = 0.5 * params.size();
+    if (newPos.x - r < b.min.x) {
       newVel.x = Math.abs(newVel.x);
     }
-    if (newPos.x > b.max.x) {
+    if (newPos.x + r > b.max.x) {
       newVel.x = -Math.abs(newVel.x);
     }
-    if (newPos.y < b.min.y) {
+    if (newPos.y - r < b.min.y) {
       newVel.y = Math.abs(newVel.y);
     }
-    if (newPos.y > b.max.y) {
+    if (newPos.y + r > b.max.y) {
       newVel.y = -Math.abs(newVel.y);
     }
-    if (newPos.z < b.min.z) {
+    if (newPos.z - r < b.min.z) {
       newVel.z = Math.abs(newVel.z);
     }
-    if (newPos.z > b.max.z) {
+    if (newPos.z + r > b.max.z) {
       newVel.z = -Math.abs(newVel.z);
     }
     position[1](newPos);
