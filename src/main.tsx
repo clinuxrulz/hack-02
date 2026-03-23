@@ -9,7 +9,7 @@ import { Ball } from "./Ball";
 
 let [ canvasSize, setCanvasSize, ] = createSignal<THREE.Vector2>();
 
-let gravity = new THREE.Vector3(0.0, -100, 0.0);
+let gravity = new THREE.Vector3(0.0, -10, 0.0);
 
 let world = World({
   player1: Player({
@@ -136,22 +136,22 @@ function App() {
         let newPos = pos[0]().clone();
         let newVel = vel[0]().clone();
         if (leftDown()) {
-          newPos.x -= 0.1;
+          newPos.x -= 0.05;
         }
         if (rightDown()) {
-          newPos.x += 0.1;
+          newPos.x += 0.05;
         }
         if (downDown()) {
-          newPos.z += 0.1;
+          newPos.z += 0.05;
         }
         if (upDown()) {
-          newPos.z -= 0.1;
+          newPos.z -= 0.05;
         }
         newPos.x += joystick.value().x * 0.1;
         newPos.z += joystick.value().y * 0.1;
         if (newPos.y == 0.0) {
           if (jumpDown()) {
-            newVel.y = 15.0;
+            newVel.y = 5.0;
           }
         } else if (newPos.y > 0.0) {
           newVel.add(gravity.clone().multiplyScalar(1.0 / 60.0));
