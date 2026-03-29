@@ -15,6 +15,7 @@ let world = World({
   player1: Player({
     position: new THREE.Vector3(0.0, 0.0, 2.5),
     velocity: new THREE.Vector3(0.0, 0.0, 0.0),
+    playerType: "Melty",
   }),
   court: Court({
     width: 4.0,
