@@ -37,17 +37,36 @@ function renderMelty(params: {
   target: THREE.Object3D,
   position: Accessor<THREE.Vector3>,
 }) {
-  const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-  const material = new THREE.MeshNormalMaterial();
-  const mesh = new THREE.Mesh(geometry, material);
+  let chinMesh: THREE.Mesh;
+  {
+    let geometry = new THREE.BoxGeometry(0.5, 0.2, 0.5);
+    let material = new THREE.MeshNormalMaterial();
+    onCleanup(() => {
+      geometry.dispose();
+      material.dispose();
+    });
+    chinMesh = new THREE.Mesh(geometry, material);
+    chinMesh.position.set(0.0, 0.1, 0.0);
+  }
+  let headMesh: THREE.Mesh;
+  {
+    let geometry = new THREE.BoxGeometry(0.5, 0.25, 0.5);
+    let material = new THREE.MeshNormalMaterial();
+    onCleanup(() => {
+      geometry.dispose();
+      material.dispose();
+    });
+    headMesh = new THREE.Mesh(geometry, material);
+    headMesh.position.set(0.0, 0.45, 0.0);
+  }
+  let group = new THREE.Group();
   createEffect(params.position, (p) => {
-    mesh.position.copy(p);
-    mesh.position.y += 0.25;
+    group.position.copy(p);
   });
-  params.target.add(mesh);
+  group.add(chinMesh);
+  group.add(headMesh);
+  params.target.add(group);
   onCleanup(() => {
-    params.target.remove(mesh);
-    geometry.dispose();
-    material.dispose();
+    params.target.remove(group);
   });
 }
