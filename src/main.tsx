@@ -110,6 +110,14 @@ function App() {
 
     const scene = new THREE.Scene();
 
+    // Ambient light (soft, overall light)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    
+    // Directional light (sun-like light)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
     world.render(scene);
 
     const renderer = new THREE.WebGLRenderer( { antialias: true, canvas, } );
