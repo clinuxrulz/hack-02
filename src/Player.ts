@@ -93,8 +93,10 @@ function renderMelty(params: {
       material.dispose();
     });
     let leftEyeMesh = new THREE.Mesh(geometry, material);
-    leftEyeMesh.position.set(-0.15, 0.45, 0.25);
-    eyesMesh = [ leftEyeMesh, ];
+    leftEyeMesh.position.set(-0.15, 0.48, 0.25);
+    let rightEyeMesh = new THREE.Mesh(geometry, material);
+    rightEyeMesh.position.set(0.15, 0.48, 0.25);
+    eyesMesh = [ leftEyeMesh, rightEyeMesh, ];
   }
   let group = new THREE.Group();
   createEffect(params.position, (p) => {
