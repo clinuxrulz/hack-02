@@ -59,12 +59,25 @@ function renderMelty(params: {
     headMesh = new THREE.Mesh(geometry, material);
     headMesh.position.set(0.0, 0.45, 0.0);
   }
+  let outsideTeethMesh: THREE.Mesh[];
+  {
+    let geometry = new THREE.BoxGeometry(0.1, 0.5, 0.1);
+    let material = new THREE.MeshNormalMaterial();
+    onCleanup(() => {
+      geometry.dispose();
+      material.dispose();
+    });
+    let leftTooth = new THREE.Mesh(geometry, material);
+    leftTooth.position.set(-0.1, 0.1, 0.0); 
+    outsideTeethMesh = [ leftTooth, ];
+  }
   let group = new THREE.Group();
   createEffect(params.position, (p) => {
     group.position.copy(p);
   });
   group.add(chinMesh);
   group.add(headMesh);
+  outsideTeethMesh.forEach((m) => group.add(m));
   params.target.add(group);
   onCleanup(() => {
     params.target.remove(group);
