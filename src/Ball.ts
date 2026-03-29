@@ -56,21 +56,27 @@ export function Ball(params: {
     let b = params.boundary();
     let r = 0.5 * params.size();
     if (newPos.x - r < b.min.x) {
+      newPos.x = b.min.x + r;
       newVel.x = Math.abs(newVel.x);
     }
     if (newPos.x + r > b.max.x) {
+      newPos.x = b.max.x - r;
       newVel.x = -Math.abs(newVel.x);
     }
     if (newPos.y - r < b.min.y) {
+      newPos.y = b.min.y + r;
       newVel.y = Math.abs(newVel.y);
     }
     if (newPos.y + r > b.max.y) {
+      newPos.y = b.max.y - r;
       newVel.y = -Math.abs(newVel.y);
     }
     if (newPos.z - r < b.min.z) {
+      newPos.z = b.min.z + r;
       newVel.z = Math.abs(newVel.z);
     }
     if (newPos.z + r > b.max.z) {
+      newPos.z = b.max.z - r;
       newVel.z = -Math.abs(newVel.z);
     }
     position[1](newPos);
