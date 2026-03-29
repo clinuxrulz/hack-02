@@ -59,6 +59,9 @@ export function World(params: {
       let c = court[0] as Accessor<NonNullable<ReturnType<typeof court[0]>>>;
       createMemo(() => c().render(target));
     });
+    when(player1[0], (p) => {
+      createMemo(() => p().render(target));
+    });
     when(ball[0], (b) => {
       createMemo(() => b().render(target));
     });

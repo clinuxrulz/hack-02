@@ -105,24 +105,6 @@ function App() {
 
     const scene = new THREE.Scene();
 
-    const geometry = new THREE.BoxGeometry( 0.5, 0.5, 0.5 );
-    const material = new THREE.MeshNormalMaterial();
-
-    const mesh = new THREE.Mesh( geometry, material );
-
-    let hasPlayer1 = createMemo(() => world.player1[0]() != undefined);
-    createMemo(() => {
-      if (!hasPlayer1()) {
-        return;
-      }
-      let player1 = world.player1[0] as Accessor<NonNullable<ReturnType<typeof world.player1[0]>>>;
-      createMemo(() => {
-        let pos = player1().position[0]();
-        mesh.position.set(pos.x, pos.y + 0.25, pos.z);
-      });
-    });
-
-    scene.add( mesh );
     world.render(scene);
 
     const renderer = new THREE.WebGLRenderer( { antialias: true, canvas, } );

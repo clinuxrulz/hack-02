@@ -1,4 +1,4 @@
-import { type Accessor, createSignal, type Signal } from "solid-js";
+import { type Accessor, createEffect, createSignal,  onCleanup, type Signal } from "solid-js";
 import * as THREE from "three";
 
 type PlayerType =
@@ -20,7 +20,10 @@ export function Player(params: {
     switch (params.playerType) {
       case "Cubey":
       case "Melty":
-        renderMelty
+        renderMelty({
+          target,
+          position: position[0],
+        });
     }
   };
   return {
@@ -32,5 +35,19 @@ export function Player(params: {
 
 function renderMelty(params: {
   target: THREE.Object3D,
-  position: Accessor<THREE.Object3D>,
-}) {}
+  position: Accessor<THREE.Vector3>,
+}) {
+  const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+  const material = new THREE.MeshNormalMaterial();
+  const mesh = new THREE.Mesh(geometry, material);
+  createEffect(params.position, (p) => {
+    mesh.position.copy(p);
+    mesh.position.y += 0.25;
+  });
+  params.target.add(mesh);
+  onCleanup(() => {
+    params.target.remove(mesh);
+    geometry.dispose();
+    material.dispose();
+  });
+}
