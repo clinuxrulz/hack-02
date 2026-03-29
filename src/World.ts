@@ -62,6 +62,9 @@ export function World(params: {
     when(player1[0], (p) => {
       createMemo(() => p().render(target));
     });
+    when(player2[0], (p) => {
+      createMemo(() => p().render(target));
+    });
     when(ball[0], (b) => {
       createMemo(() => b().render(target));
     });
