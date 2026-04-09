@@ -87,12 +87,18 @@ class ReactiveResource<F extends readonly string[]> {
   #def: ResourceDef<F>;
   #resource: ResourceReader<F>;
   #fieldRefs: Map<string, ReactiveRef<number>>;
+  #resourceKey: string;
 
   constructor(triggerStore: TriggerStore, def: ResourceDef<F>, resource: ResourceReader<F>) {
     this.#triggerStore = triggerStore;
     this.#def = def;
     this.#resource = resource;
+    this.#resourceKey = `resource:${def.toString()}`;
     this.#fieldRefs = new Map();
+  }
+
+  get resourceKey(): string {
+    return this.#resourceKey;
   }
 
   #getField(field: F[number]): number {
@@ -100,7 +106,7 @@ class ReactiveResource<F extends readonly string[]> {
     if (observer === null) {
       return this.#resource[field];
     }
-    const key = `resource:${this.#def}:${field}`;
+    const key = `${this.#resourceKey}:${field}`;
     let ref = this.#fieldRefs.get(field);
     if (ref === undefined) {
       ref = new ReactiveRef(
@@ -190,12 +196,18 @@ class ReactiveQuery<Defs extends readonly ComponentDef[]> {
   #ecs: ECS;
   #query: Query<Defs>;
   #defs: Defs;
+  #queryKey: string;
 
-  constructor(triggerStore: TriggerStore, ecs: ECS, defs: Defs) {
+  constructor(triggerStore: TriggerStore, ecs: ECS, defs: Defs, queryKey: string) {
     this.#triggerStore = triggerStore;
     this.#ecs = ecs;
     this.#defs = defs;
+    this.#queryKey = queryKey;
     this.#query = ecs.query(...defs);
+  }
+
+  get queryKey(): string {
+    return this.#queryKey;
   }
 
   get archetype_count(): number {
@@ -203,8 +215,7 @@ class ReactiveQuery<Defs extends readonly ComponentDef[]> {
     if (observer === null) {
       return this.#query.archetype_count;
     }
-    const key = `query:${this.#query.archetype_count}:count`;
-    this.#triggerStore.track(key);
+    this.#triggerStore.track(`${this.#queryKey}:archetype_count`);
     return this.#query.archetype_count;
   }
 
@@ -213,8 +224,7 @@ class ReactiveQuery<Defs extends readonly ComponentDef[]> {
     if (observer === null) {
       return this.#query.count();
     }
-    const key = `query:${this.#query.count()}:count`;
-    this.#triggerStore.track(key);
+    this.#triggerStore.track(`${this.#queryKey}:count`);
     return this.#query.count();
   }
 
@@ -223,8 +233,7 @@ class ReactiveQuery<Defs extends readonly ComponentDef[]> {
     if (observer === null) {
       return this.#query.archetypes;
     }
-    const key = `query:${this.#query.archetype_count}:archetypes`;
-    this.#triggerStore.track(key);
+    this.#triggerStore.track(`${this.#queryKey}:archetypes`);
     return this.#query.archetypes;
   }
 
@@ -237,23 +246,22 @@ class ReactiveQuery<Defs extends readonly ComponentDef[]> {
       }
       return;
     }
-    const archKey = `query:${archetypes.length}:archetypes`;
-    this.#triggerStore.track(archKey);
+    this.#triggerStore.track(`${this.#queryKey}:archetypes`);
     for (const arch of this.#query) {
-      yield new ReactiveArchetype(this.#triggerStore, this.#ecs, arch);
+      yield new ReactiveArchetype(this.#triggerStore, this.#ecs, arch, this.#queryKey);
     }
   }
 
   and<D extends ComponentDef[]>(...comps: D): ReactiveQuery<[...Defs, ...D]> {
-    return new ReactiveQuery(this.#triggerStore, this.#ecs, [...this.#defs, ...comps]);
+    return new ReactiveQuery(this.#triggerStore, this.#ecs, [...this.#defs, ...comps], `${this.#queryKey}:and`);
   }
 
   not(...comps: ComponentDef[]): ReactiveQuery<Defs> {
-    return new ReactiveQuery(this.#triggerStore, this.#ecs, this.#defs);
+    return new ReactiveQuery(this.#triggerStore, this.#ecs, this.#defs, `${this.#queryKey}:not`);
   }
 
   any_of(...comps: ComponentDef[]): ReactiveQuery<Defs> {
-    return new ReactiveQuery(this.#triggerStore, this.#ecs, this.#defs);
+    return new ReactiveQuery(this.#triggerStore, this.#ecs, this.#defs, `${this.#queryKey}:any_of`);
   }
 }
 
@@ -269,11 +277,13 @@ class ReactiveArchetype {
   #triggerStore: TriggerStore;
   #ecs: ECS;
   #archetype: ArchetypeLike;
+  #queryKey: string;
 
-  constructor(triggerStore: TriggerStore, ecs: ECS, archetype: ArchetypeLike) {
+  constructor(triggerStore: TriggerStore, ecs: ECS, archetype: ArchetypeLike, queryKey: string) {
     this.#triggerStore = triggerStore;
     this.#ecs = ecs;
     this.#archetype = archetype;
+    this.#queryKey = queryKey;
   }
 
   get entity_ids(): Uint32Array {
@@ -330,8 +340,13 @@ export class ReactiveECS {
     return this.#ecs;
   }
 
+  dirty(key: string): void {
+    this.#triggers.dirty(key);
+  }
+
   query<Defs extends ComponentDef[]>(...defs: Defs): ReactiveQuery<Defs> {
-    return new ReactiveQuery(this.#triggers, this.#ecs, defs);
+    const queryKey = `query:${defs.map(d => d.toString()).join(",")}`;
+    return new ReactiveQuery(this.#triggers, this.#ecs, defs, queryKey);
   }
 
   resource<F extends readonly string[]>(def: ResourceDef<F>): ReactiveResource<F> {
