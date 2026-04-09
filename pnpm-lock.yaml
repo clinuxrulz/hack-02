@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@oasys/oecs':
+        specifier: ^0.2.1
+        version: 0.2.1
       '@solidjs/web':
         specifier: 2.0.0-beta.3
         version: 2.0.0-beta.3(@solidjs/signals@0.13.3)(solid-js@2.0.0-beta.3)
@@ -299,6 +302,9 @@ packages:
 
   '@jridgewell/trace-mapping@0.3.30':
     resolution: {integrity: sha512-GQ7Nw5G2lTu/BtHTKfXhKHok2WGetd4XYcVKGx00SjAk8GMwgJM3zr6zORiPGuOE+/vkc90KtTosSSvaCjKb2Q==}
+
+  '@oasys/oecs@0.2.1':
+    resolution: {integrity: sha512-/h7bxO+a0tMJN5M1DoOKpiQXmXu5sBVpbz17SYOyHwL2GgMdVw7tfNgedikaggUK26wwUI8dAMoQLQwRmrCcEQ==}
 
   '@rollup/rollup-android-arm-eabi@4.59.0':
     resolution: {integrity: sha512-upnNBkA6ZH2VKGcBj9Fyl9IGNPULcjXRlg0LLeaioQWueH30p6IXtJEbKAgvyv+mJaMxSm1l6xwDXYjpEMiLMg==}
@@ -937,6 +943,8 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+
+  '@oasys/oecs@0.2.1': {}
 
   '@rollup/rollup-android-arm-eabi@4.59.0':
     optional: true
