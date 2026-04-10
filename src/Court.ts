@@ -1,56 +1,20 @@
 import { createMemo, createSignal, type Signal, onCleanup } from "solid-js";
 import * as THREE from "three";
+import type { ReactiveECS } from "./ReactiveECS";
+import type { EntityID } from "@oasys/oecs";
+import { RegisteredCourtDimensions } from "./World";
 
 export function Court(params: {
   width: number,
   length: number,
   netHeight: number,
-}): {
-  width: Signal<number>,
-  length: Signal<number>,
-  netHeight: Signal<number>,
-  render: (target: THREE.Object3D) => void,
-} {
-  let width = createSignal(params.width);
-  let length = createSignal(params.length);
-  let netHeight = createSignal(params.netHeight);
+  reactiveEcs: ReactiveECS,
+}): EntityID {
+  const ecs = params.reactiveEcs;
 
-  let render = (target: THREE.Object3D) => {
-    createMemo(() => {
-      let w = width[0]();
-      let l = length[0]();
-      let geometry = new THREE.BoxGeometry(w, 0.1, l);
-      let material = new THREE.MeshNormalMaterial();
-      let mesh = new THREE.Mesh(geometry, material);
-      mesh.position.y -= 0.05;
-      target.add(mesh);
-      onCleanup(() => {
-        target.remove(mesh);
-        geometry.dispose();
-        material.dispose();
-      });
-    });
-    createMemo(() => {
-      let w = width[0]();
-      let nh = netHeight[0]();
-      let geometry = new THREE.BoxGeometry(w, nh, 0.1);
-      let material = new THREE.MeshNormalMaterial({
-        transparent: true,
-        opacity: 0.5
-      });
-      let mesh = new THREE.Mesh(geometry, material);
-      mesh.position.y = 0.5 * nh;
-      target.add(mesh);
-      onCleanup(() => {
-        target.remove(mesh);
-      });
-    });
-  };
+  const entityId = ecs.create_entity();
+  ecs.add_component(entityId, RegisteredCourtDimensions, { width: params.width, length: params.length, netHeight: params.netHeight });
+  // Renderable component will be added by the RenderSystem
 
-  return {
-    width,
-    length,
-    netHeight,
-    render,
-  };
+  return entityId;
 }

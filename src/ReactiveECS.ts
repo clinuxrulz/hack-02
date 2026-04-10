@@ -1,4 +1,4 @@
-import { createStore, getObserver, onCleanup } from "solid-js";
+import { createStore, getObserver, onCleanup, untrack } from "solid-js";
 import type { ECS } from "@oasys/oecs";
 import type { Query } from "@oasys/oecs";
 import type { ResourceDef, ResourceReader } from "@oasys/oecs";
@@ -378,13 +378,13 @@ export class ReactiveECS {
 
   create_entity(): EntityID {
     const id = this.#ecs.create_entity();
-    this.#triggers.dirty("world:entities");
+    untrack(() => this.#triggers.dirty("world:entities"));
     return id;
   }
 
   destroy_entity_deferred(id: EntityID): void {
     this.#ecs.destroy_entity_deferred(id);
-    this.#triggers.dirty("world:entities");
+    untrack(() => this.#triggers.dirty("world:entities"));
   }
 
   add_component(entity_id: EntityID, def: ComponentDef<Record<string, never>>): this;
@@ -392,23 +392,27 @@ export class ReactiveECS {
   add_component(entity_id: EntityID, def: ComponentDef, values?: Record<string, number>): this {
     const key = `entity:${entity_id}:has:${def}`;
     this.#ecs.add_component(entity_id, def, values as any);
-    this.#triggers.dirty(key);
-    this.#triggers.dirty("world:entities");
+    untrack(() => {
+      this.#triggers.dirty(key);
+      this.#triggers.dirty("world:entities");
+    });
     return this;
   }
 
   remove_component(entity_id: EntityID, def: ComponentDef): this {
     const key = `entity:${entity_id}:has:${def}`;
     this.#ecs.remove_component(entity_id, def);
-    this.#triggers.dirty(key);
-    this.#triggers.dirty("world:entities");
+    untrack(() => {
+      this.#triggers.dirty(key);
+      this.#triggers.dirty("world:entities");
+    });
     return this;
   }
 
   set_field<S extends ComponentSchema>(entity_id: EntityID, def: ComponentDef<S>, field: string & keyof S, value: number): void {
     const key = `entity:${entity_id}:${def}:${field}`;
     this.#ecs.set_field(entity_id, def, field, value);
-    this.#triggers.dirty(key);
+    untrack(() => this.#triggers.dirty(key));
   }
 
   set_resource<F extends readonly string[]>(def: ResourceDef<F>, values: { readonly [K in F[number]]: number }): void {
