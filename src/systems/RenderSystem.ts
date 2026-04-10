@@ -236,16 +236,35 @@ export function createRenderSystem(ecs: ReactiveECS, scene: THREE.Scene): { upda
         const ballMaterial = new THREE.MeshNormalMaterial();
         const ballMesh = new THREE.Mesh(ballGeometry, ballMaterial);
         scene.add(ballMesh);
+        
+        const shadowGeometry = new THREE.CircleGeometry(ballSize, 32);
+        shadowGeometry.scale(1, 0.5, 1);
+        const shadowMaterial = new THREE.MeshBasicMaterial({ 
+          color: 0x000000, 
+          transparent: true, 
+          opacity: 0.3,
+        });
+        const shadowMesh = new THREE.Mesh(shadowGeometry, shadowMaterial);
+        shadowMesh.rotation.x = -Math.PI / 2;
+        shadowMesh.position.y = 0.01;
+        scene.add(shadowMesh);
+        
         onCleanup(() => {
           scene.remove(ballMesh);
+          scene.remove(shadowMesh);
           ballGeometry.dispose();
           ballMaterial.dispose();
+          shadowGeometry.dispose();
+          shadowMaterial.dispose();
         });
         createMemo(() => {
           let positionX = ballEntity.getField(RegisteredPosition, "x");
           let positionY = ballEntity.getField(RegisteredPosition, "y");
           let positionZ = ballEntity.getField(RegisteredPosition, "z");
           ballMesh.position.set(positionX, positionY, positionZ);
+          const shadowScale = Math.max(0.3, 1 - positionY * 0.1);
+          shadowMesh.scale.set(shadowScale, shadowScale, shadowScale);
+          shadowMesh.position.set(positionX, 0.01, positionZ);
         });
       },
     ));
