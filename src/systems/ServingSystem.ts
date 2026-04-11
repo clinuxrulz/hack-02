@@ -8,6 +8,7 @@ import {
   RegisteredPlayerConfig,
   RegisteredCourtDimensions,
 } from "../World";
+import { gameEvents } from "../Events";
 
 const SERVE_PHASE_WAITING = 0;
 const SERVE_PHASE_BALL_THROWN = 1;
@@ -116,6 +117,8 @@ export function createServingSystem(
           ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "x", hitVelX);
           ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "y", hitVelY);
           ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "z", hitVelZ);
+          
+          gameEvents.emit("ballHit", { player: serverPlayer });
           
           const playerQuery = ecs.query(RegisteredPosition, RegisteredPlayerConfig);
           for (const arch of playerQuery) {

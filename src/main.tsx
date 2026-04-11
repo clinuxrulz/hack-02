@@ -15,6 +15,7 @@ import { createBallPhysicsSystem } from "./systems/BallPhysicsSystem";
 import { createServingSystem } from "./systems/ServingSystem";
 import { createTennisRulesSystem } from "./systems/TennisRulesSystem";
 import { createAISystem } from "./systems/AISystem";
+import { createProceduralSounds } from "./systems/SoundSystem";
 
 const [scoreP0, setScoreP0] = createSignal(0);
 const [scoreP1, setScoreP1] = createSignal(0);
@@ -163,8 +164,9 @@ function App() {
       setCurrentServer(server);
     });
     const ai = createAISystem(ecs);
+    const sounds = createProceduralSounds();
 
-    const disposers = [input.dispose, player.dispose, ball.dispose, serving.dispose, tennisRules.dispose, ai.dispose];
+    const disposers = [input.dispose, player.dispose, ball.dispose, serving.dispose, tennisRules.dispose, ai.dispose, sounds.dispose];
 
     return {
       update: (dt: number) => {
