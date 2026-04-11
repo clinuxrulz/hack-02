@@ -20,6 +20,7 @@ import { createProceduralSounds } from "./systems/SoundSystem";
 const [scoreP0, setScoreP0] = createSignal(0);
 const [scoreP1, setScoreP1] = createSignal(0);
 const [currentServer, setCurrentServer] = createSignal(0);
+const [soundEnabled, setSoundEnabled] = createSignal(true);
 
 const TENNIS_POINTS = ["0", "15", "30", "40", "ADV"];
 
@@ -33,6 +34,7 @@ function formatScore(points: number, opponentPoints: number): string {
 
 function ScoreBoard() {
   return (
+    <>
     <div style={{
       position: "absolute",
       top: "20px",
@@ -65,6 +67,29 @@ function ScoreBoard() {
         Serving: P{currentServer()}
       </div>
     </div>
+    <div style={{
+      position: "absolute",
+      top: "20px",
+      right: "20px",
+      "background-color": "rgba(0, 0, 0, 0.7)",
+      color: "white",
+      padding: "8px 15px",
+      "border-radius": "5px",
+      "font-family": "Arial, sans-serif",
+      "font-size": "14px",
+      display: "flex",
+      "align-items": "center",
+      gap: "8px",
+    }}>
+      <input
+        type="checkbox"
+        checked={soundEnabled()}
+        onChange={(e) => setSoundEnabled(e.target.checked)}
+        style={{ width: "16px", height: "16px", cursor: "pointer" }}
+      />
+      <span>Sound</span>
+    </div>
+    </>
   );
 }
 
@@ -164,7 +189,7 @@ function App() {
       setCurrentServer(server);
     });
     const ai = createAISystem(ecs);
-    const sounds = createProceduralSounds();
+    const sounds = createProceduralSounds(soundEnabled);
 
     const disposers = [input.dispose, player.dispose, ball.dispose, serving.dispose, tennisRules.dispose, ai.dispose, sounds.dispose];
 

@@ -1,10 +1,11 @@
 import { gameEvents } from "../Events";
+import type { Accessor } from "solid-js";
 
 export interface SoundEffect {
   play(): void;
 }
 
-export function createProceduralSounds(): { dispose: () => void } {
+export function createProceduralSounds(enabled: Accessor<boolean>): { dispose: () => void } {
   const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
   let disposed = false;
   let bounceBuffer: AudioBuffer | null = null;
@@ -216,10 +217,12 @@ export function createProceduralSounds(): { dispose: () => void } {
   };
 
   const bounceHandler = (data: any) => {
+    if (!enabled()) return;
     bounceSound.play();
   };
 
   const hitHandler = (data: any) => {
+    if (!enabled()) return;
     racketHitSound.play();
   };
 
