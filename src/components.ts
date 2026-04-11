@@ -36,8 +36,8 @@ export const AI = {
 }
 
 export const DesiredMovement = {
-    def: { x: "f64", z: "f64" } as const,
-    schema: { x: 0.0, z: 0.0 },
+    def: { x: "f64", z: "f64", jump: "u8" } as const,
+    schema: { x: 0.0, z: 0.0, jump: 0 },
     name: "DesiredMovement"
 };
 

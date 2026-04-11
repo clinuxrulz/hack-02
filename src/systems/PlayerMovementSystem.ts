@@ -52,6 +52,7 @@ export function createPlayerMovementSystem(
         const velocitiesZ = arch.get_column(RegisteredVelocity, "z");
         const desiredMovementsX = arch.get_column(RegisteredDesiredMovement, "x");
         const desiredMovementsZ = arch.get_column(RegisteredDesiredMovement, "z");
+        const desiredMovementsJump = arch.get_column(RegisteredDesiredMovement, "jump");
         const playerConfigTypes = arch.get_column(RegisteredPlayerConfig, "playerType");
         const playerConfigFacings = arch.get_column(RegisteredPlayerConfig, "facingForward");
         const entityIds = arch.entity_ids;
@@ -61,7 +62,7 @@ export function createPlayerMovementSystem(
           const entityId = entityIds[i];
           const position = { x: positionsX[i], y: positionsY[i], z: positionsZ[i] };
           const velocity = { x: velocitiesX[i], y: velocitiesY[i], z: velocitiesZ[i] };
-          const desiredMovement = { x: desiredMovementsX[i], z: desiredMovementsZ[i] };
+          const desiredMovement = { x: desiredMovementsX[i], z: desiredMovementsZ[i], jump: desiredMovementsJump[i] };
           const playerConfig = { playerType: playerConfigTypes[i], facingForward: playerConfigFacings[i] };
 
           let newPosX = position.x;
@@ -88,6 +89,8 @@ export function createPlayerMovementSystem(
 
           if (!inServingPhase && newPosY <= 0.0) {
             if (isInputControlled && jumpDown()) {
+              newVelY = 5.0;
+            } else if (!isInputControlled && desiredMovement.jump === 1) {
               newVelY = 5.0;
             }
           } else if (newPosY > 0.0) {

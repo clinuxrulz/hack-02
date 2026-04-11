@@ -13,6 +13,7 @@
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@types/file-saver": "^2.0.7",
     "@types/three": "^0.183.1",
     "babel-preset-solid": "2.0.0-beta.3",
     "typescript": "^5.7.2",
@@ -23,6 +24,7 @@
   "dependencies": {
     "@oasys/oecs": "^0.2.1",
     "@solidjs/web": "2.0.0-beta.3",
+    "file-saver": "^2.0.5",
     "solid-js": "2.0.0-beta.3",
     "three": "^0.183.2"
   },

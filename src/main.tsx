@@ -16,11 +16,16 @@ import { createServingSystem } from "./systems/ServingSystem";
 import { createTennisRulesSystem } from "./systems/TennisRulesSystem";
 import { createAISystem } from "./systems/AISystem";
 import { createProceduralSounds } from "./systems/SoundSystem";
+import { saveNetworkToFile, loadNetworkFromFile, trainNetwork, getTrainingBufferSize, initNetworkFromOPFS, autoSaveNetwork } from "./NNManager";
+import { setUseNN as setAISystemUseNN } from "./systems/AISystem";
 
 const [scoreP0, setScoreP0] = createSignal(0);
 const [scoreP1, setScoreP1] = createSignal(0);
 const [currentServer, setCurrentServer] = createSignal(0);
 const [soundEnabled, setSoundEnabled] = createSignal(true);
+const [aiVsAi, setAiVsAi] = createSignal(false);
+const [useNN, setUseNN] = createSignal(false);
+let nnFileInputEl: HTMLInputElement | undefined;
 
 const TENNIS_POINTS = ["0", "15", "30", "40", "ADV"];
 
@@ -37,7 +42,72 @@ function ScoreBoard() {
     <>
     <div style={{
       position: "absolute",
-      top: "20px",
+      top: "10px",
+      left: "50%",
+      transform: "translateX(-50%)",
+      "background-color": "rgba(0, 0, 0, 0.7)",
+      color: "white",
+      padding: "8px 15px",
+      "border-radius": "5px",
+      "font-family": "Arial, sans-serif",
+      "font-size": "14px",
+      display: "flex",
+      "align-items": "center",
+      gap: "10px",
+      "z-index": 100,
+    }}>
+      <label style={{ display: "flex", "align-items": "center", gap: "4px", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={soundEnabled()}
+          onChange={(e) => setSoundEnabled(e.target.checked)}
+        />
+        <span>Sound</span>
+      </label>
+      <span style={{ color: "#888" }}>|</span>
+      <label style={{ display: "flex", "align-items": "center", gap: "4px", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={aiVsAi()}
+          onChange={(e) => setAiVsAi(e.target.checked)}
+        />
+        <span>AI vs AI</span>
+      </label>
+      <span style={{ color: "#888" }}>|</span>
+      <label style={{ display: "flex", "align-items": "center", gap: "4px", cursor: "pointer" }}>
+        <input
+          type="checkbox"
+          checked={useNN()}
+          onChange={(e) => setUseNN(e.target.checked)}
+        />
+        <span>Use NN</span>
+      </label>
+      <button
+        onClick={() => saveNetworkToFile()}
+        style={{ "background": "#444", color: "white", border: "none", padding: "4px 8px", "border-radius": "3px", cursor: "pointer", "font-size": "12px" }}
+      >
+        Save NN
+      </button>
+      <button
+        onClick={() => nnFileInputEl?.click()}
+        style={{ "background": "#444", color: "white", border: "none", padding: "4px 8px", "border-radius": "3px", cursor: "pointer", "font-size": "12px" }}
+      >
+        Load NN
+      </button>
+      <input
+        ref={nnFileInputEl}
+        type="file"
+        accept=".json"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) loadNetworkFromFile(file);
+        }}
+      />
+    </div>
+    <div style={{
+      position: "absolute",
+      top: "60px",
       left: "50%",
       transform: "translateX(-50%)",
       "background-color": "rgba(0, 0, 0, 0.7)",
@@ -67,28 +137,6 @@ function ScoreBoard() {
         Serving: P{currentServer()}
       </div>
     </div>
-    <div style={{
-      position: "absolute",
-      top: "20px",
-      right: "20px",
-      "background-color": "rgba(0, 0, 0, 0.7)",
-      color: "white",
-      padding: "8px 15px",
-      "border-radius": "5px",
-      "font-family": "Arial, sans-serif",
-      "font-size": "14px",
-      display: "flex",
-      "align-items": "center",
-      gap: "8px",
-    }}>
-      <input
-        type="checkbox"
-        checked={soundEnabled()}
-        onChange={(e) => setSoundEnabled(e.target.checked)}
-        style={{ width: "16px", height: "16px", cursor: "pointer" }}
-      />
-      <span>Sound</span>
-    </div>
     </>
   );
 }
@@ -107,7 +155,7 @@ const player1Entity = Player({
   reactiveEcs: world.ecs,
 });
 world.ecs.add_component(player1Entity, RegisteredInputControlled, {});
-world.ecs.add_component(player1Entity, RegisteredDesiredMovement, { x: 0, z: 0 });
+world.ecs.add_component(player1Entity, RegisteredDesiredMovement, { x: 0, z: 0, jump: 0 });
 world.ecs.add_component(player1Entity, RegisteredRacketSide, { side: 1 });
 
 const player2Entity = Player({
@@ -118,7 +166,7 @@ const player2Entity = Player({
   reactiveEcs: world.ecs,
 });
 world.ecs.add_component(player2Entity, RegisteredAI, {});
-world.ecs.add_component(player2Entity, RegisteredDesiredMovement, { x: 0, z: 0 });
+world.ecs.add_component(player2Entity, RegisteredDesiredMovement, { x: 0, z: 0, jump: 0 });
 world.ecs.add_component(player2Entity, RegisteredRacketSide, { side: -1 });
 
 const courtEntity = Court({
@@ -142,6 +190,7 @@ const ballEntity = Ball({
 
 const servingEntity = world.ecs.create_entity();
 world.ecs.add_component(servingEntity, RegisteredServingState, { phase: 0, serverPlayer: 0, throwTime: 0.0 });
+initNetworkFromOPFS();
 
 let [ upDown, setUpDown, ] = createSignal(false);
 let [ downDown, setDownDown, ] = createSignal(false);
@@ -175,6 +224,24 @@ function App() {
     size: () => jumpButtonSize,
   });
 
+  createEffect(
+    () => aiVsAi(),
+    (isAiVsAi) => {
+      const p1 = world.ecs.entity(player1Entity);
+      if (isAiVsAi) {
+        if (!p1.hasComponent(RegisteredAI)) {
+          world.ecs.remove_component(player1Entity, RegisteredInputControlled);
+          world.ecs.add_component(player1Entity, RegisteredAI, {});
+        }
+      } else {
+        if (p1.hasComponent(RegisteredAI)) {
+          world.ecs.remove_component(player1Entity, RegisteredAI);
+          world.ecs.add_component(player1Entity, RegisteredInputControlled, {});
+        }
+      }
+    }
+  );
+
   // Function to create and manage all systems
   const createGameSystems = (ecs: ReactiveECS, scene: THREE.Scene) => {
     const input = createInputProcessingSystem(ecs, upDown, downDown, leftDown, rightDown, joystick.value);
@@ -190,6 +257,8 @@ function App() {
     });
     const ai = createAISystem(ecs);
     const sounds = createProceduralSounds(soundEnabled);
+    
+    setAISystemUseNN(useNN, aiVsAi);
 
     const disposers = [input.dispose, player.dispose, ball.dispose, serving.dispose, tennisRules.dispose, ai.dispose, sounds.dispose];
 
@@ -201,6 +270,9 @@ function App() {
         ball.update(dt);
         serving.update(dt);
         tennisRules.update(dt);
+        if (useNN() && aiVsAi()) {
+          trainNetwork(0.001, 4);
+        }
       },
       dispose: () => {
         disposers.forEach(d => d());
