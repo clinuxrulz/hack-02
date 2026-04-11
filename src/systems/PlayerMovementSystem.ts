@@ -75,8 +75,9 @@ export function createPlayerMovementSystem(
           let currentRacketSide = racketSides[i];
           
           if (!(serverCantMove && isServer)) {
-            newPosX += desiredMovement.x * 0.1;
-            newPosZ += desiredMovement.z * 0.1;
+            const speed = 7.0;
+            newPosX += desiredMovement.x * speed * deltaTime;
+            newPosZ += desiredMovement.z * speed * deltaTime;
             
             if (desiredMovement.x > 0.1) {
               currentRacketSide = -1;

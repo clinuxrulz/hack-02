@@ -232,10 +232,21 @@ function App() {
     renderer.setSize( width, height );
 
     let lastT: number = 0.0;
+    let accumulator: number = 0.0;
+    const fixedTimeStep = 1.0 / 60.0;
+    const maxAccumulatedTime = 0.25;
+
     let renderLoop = (t: number) => {
-      let deltaTime = lastT === 0.0 ? 1.0 / 60.0 : (t - lastT) / 1000.0;
+      let frameTime = lastT === 0.0 ? fixedTimeStep : (t - lastT) / 1000.0;
       lastT = t;
-      systemDisposers.update(deltaTime);
+      
+      if (frameTime > maxAccumulatedTime) frameTime = maxAccumulatedTime;
+      accumulator += frameTime;
+
+      while (accumulator >= fixedTimeStep) {
+        systemDisposers.update(fixedTimeStep);
+        accumulator -= fixedTimeStep;
+      }
 
       renderer.render(scene, camera);
       if (animating()) {

@@ -97,12 +97,13 @@ export function createBallPhysicsSystem(
               const playerPosY = playerArch.get_column(RegisteredPosition, "y")[0];
               const playerPosZ = playerArch.get_column(RegisteredPosition, "z")[0];
               const playerType = playerArch.get_column(RegisteredPlayerConfig, "playerType")[0];
+              const facingForward = playerArch.get_column(RegisteredPlayerConfig, "facingForward")[0];
               const racketSide = playerArch.get_column(RegisteredRacketSide, "side")[0];
               
               const racketOffsetX = racketSide * 0.5;
               const racketX = playerPosX + racketOffsetX;
               const racketY = playerPosY + 0.5;
-              const racketZ = playerPosZ + 0.3;
+              const racketZ = playerPosZ + (facingForward === 1 ? -0.4 : 0.4);
               
               const racketRadius = 0.6;
               const dx = newPosX - racketX;
