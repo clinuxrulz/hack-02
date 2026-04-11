@@ -10,6 +10,7 @@ import {
   RegisteredGlobalGravity,
   RegisteredPlayerConfig,
   RegisteredRacketSide,
+  RegisteredServingState,
 } from "../World";
 import { gameEvents } from "../Events";
 
@@ -91,7 +92,17 @@ export function createBallPhysicsSystem(
           }
           wasAboveGround = !isNowOnGround;
           
-          if (hitCooldown <= 0) {
+          const servingQuery = ecs.query(RegisteredServingState);
+          let isInServingMode = false;
+          if (servingQuery.archetypes.length > 0) {
+            const servingArch = servingQuery.archetypes[0];
+            const phases = servingArch.get_column(RegisteredServingState, "phase");
+            if (phases[0] !== 2) {
+              isInServingMode = true;
+            }
+          }
+          
+          if (hitCooldown <= 0 && !isInServingMode) {
             for (const playerArch of ecs.query(RegisteredPosition, RegisteredPlayerConfig, RegisteredRacketSide)) {
               const playerPosX = playerArch.get_column(RegisteredPosition, "x")[0];
               const playerPosY = playerArch.get_column(RegisteredPosition, "y")[0];
