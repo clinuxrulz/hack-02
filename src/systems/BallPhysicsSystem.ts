@@ -103,10 +103,11 @@ export function createBallPhysicsSystem(
           }
           
           if (hitCooldown <= 0 && !isInServingMode) {
-            for (const playerArch of ecs.query(RegisteredPosition, RegisteredPlayerConfig, RegisteredRacketSide)) {
+            for (const playerArch of ecs.query(RegisteredPosition, RegisteredVelocity, RegisteredPlayerConfig, RegisteredRacketSide)) {
               const playerPosX = playerArch.get_column(RegisteredPosition, "x")[0];
               const playerPosY = playerArch.get_column(RegisteredPosition, "y")[0];
               const playerPosZ = playerArch.get_column(RegisteredPosition, "z")[0];
+              const playerVelX = playerArch.get_column(RegisteredVelocity, "x")[0];
               const playerType = playerArch.get_column(RegisteredPlayerConfig, "playerType")[0];
               const facingForward = playerArch.get_column(RegisteredPlayerConfig, "facingForward")[0];
               const racketSide = playerArch.get_column(RegisteredRacketSide, "side")[0];
@@ -127,7 +128,8 @@ export function createBallPhysicsSystem(
               if (dist < racketRadius + ballRadius) {
                 console.log(`HIT Player ${playerType}!`);
                 const direction = playerType === 0 ? 1 : -1;
-                newVelX = dx * 2;
+                const movementInfluence = playerVelX * 3;
+                newVelX = dx * 2 + movementInfluence;
                 newVelY = 4;
                 newVelZ = direction * 10;
                 newPosY = racketY + racketRadius + ballRadius;
@@ -161,7 +163,8 @@ export function createBallPhysicsSystem(
                   console.log(`RAY HIT Player ${playerType}!`);
                   const direction = playerType === 0 ? 1 : -1;
                   const hitStrength = 1.0 - (closestDist / (racketRadius + ballRadius));
-                  newVelX = (closestDx / closestDist) * 5 * hitStrength;
+                  const movementInfluence = playerVelX * 3;
+                  newVelX = (closestDx / closestDist) * 5 * hitStrength + movementInfluence;
                   newVelY = 4;
                   newVelZ = direction * 12;
                   newPosY = Math.max(newPosY, racketY + racketRadius + ballRadius);
