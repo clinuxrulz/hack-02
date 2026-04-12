@@ -19,9 +19,12 @@ export function createServingSystem(
   actionPressed: Accessor<boolean>,
   leftRight: Accessor<number>,
   upDown: Accessor<number>,
+  hitPower: Accessor<number>,
+  hitTriggered: Accessor<boolean>,
 ): { update: (dt: number) => void; dispose: () => void } {
   return createRoot((dispose) => {
     let lastActionPressed = false;
+    let powerOnPress = 0;
     
     const update = (deltaTime: number) => {
       const playerQuery = ecs.query(RegisteredPosition, RegisteredPlayerConfig);
@@ -92,9 +95,11 @@ export function createServingSystem(
       }
       
       const actionJustPressed = actionPressed() && !lastActionPressed;
+      const actionJustReleased = hitTriggered();
       lastActionPressed = actionPressed();
       
       if (actionJustPressed) {
+        powerOnPress = hitPower();
         if (phase === SERVE_PHASE_WAITING) {
           ecs.set_field(servingEntityId, RegisteredServingState, "phase", SERVE_PHASE_BALL_THROWN);
           ecs.set_field(servingEntityId, RegisteredServingState, "throwTime", 0.0);
@@ -105,36 +110,39 @@ export function createServingSystem(
           ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "x", 0);
           ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "y", 4.0);
           ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "z", 0);
-        } else if (phase === SERVE_PHASE_BALL_THROWN) {
-          ecs.set_field(servingEntityId, RegisteredServingState, "phase", SERVE_PHASE_BALL_HIT);
+        }
+      }
+      
+      if (actionJustReleased && phase === SERVE_PHASE_BALL_THROWN) {
+        ecs.set_field(servingEntityId, RegisteredServingState, "phase", SERVE_PHASE_BALL_HIT);
+        
+        const inputX = leftRight();
+        const power = powerOnPress;
+        const basePower = 1.0 + power * 0.375;
+        const hitVelX = 4 * inputX + (Math.random() - 0.5) * 1;
+        const hitVelY = (3 + Math.random() * 2) * basePower;
+        const hitVelZ = (serverPlayer === 0 ? 8 : -8) * basePower;
+        
+        ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "x", hitVelX);
+        ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "y", hitVelY);
+        ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "z", hitVelZ);
+        
+        gameEvents.emit("ballHit", { player: serverPlayer });
+        
+        const playerQuery = ecs.query(RegisteredPosition, RegisteredPlayerConfig);
+        for (const arch of playerQuery) {
+          const positionsX = arch.get_column(RegisteredPosition, "x");
+          const positionsY = arch.get_column(RegisteredPosition, "y");
+          const positionsZ = arch.get_column(RegisteredPosition, "z");
+          const playerTypes = arch.get_column(RegisteredPlayerConfig, "playerType");
           
-          const inputX = leftRight();
-          const baseVelX = 4;
-          const hitVelX = baseVelX * inputX + (Math.random() - 0.5) * 1;
-          const hitVelY = 3 + Math.random() * 2;
-          const hitVelZ = serverPlayer === 0 ? 8 : -8;
-          
-          ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "x", hitVelX);
-          ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "y", hitVelY);
-          ecs.set_field(ballQuery.archetypes[0].entity_ids[0] as EntityID, RegisteredVelocity, "z", hitVelZ);
-          
-          gameEvents.emit("ballHit", { player: serverPlayer });
-          
-          const playerQuery = ecs.query(RegisteredPosition, RegisteredPlayerConfig);
-          for (const arch of playerQuery) {
-            const positionsX = arch.get_column(RegisteredPosition, "x");
-            const positionsY = arch.get_column(RegisteredPosition, "y");
-            const positionsZ = arch.get_column(RegisteredPosition, "z");
-            const playerTypes = arch.get_column(RegisteredPlayerConfig, "playerType");
-            
-            for (let i = 0; i < arch.entity_count; i++) {
-              if (playerTypes[i] === serverPlayer) {
-                const id = arch.entity_ids[i] as EntityID;
-                ecs.set_field(id, RegisteredPosition, "x", positionsX[i]);
-                ecs.set_field(id, RegisteredPosition, "y", positionsY[i]);
-                ecs.set_field(id, RegisteredPosition, "z", positionsZ[i]);
-                break;
-              }
+          for (let i = 0; i < arch.entity_count; i++) {
+            if (playerTypes[i] === serverPlayer) {
+              const id = arch.entity_ids[i] as EntityID;
+              ecs.set_field(id, RegisteredPosition, "x", positionsX[i]);
+              ecs.set_field(id, RegisteredPosition, "y", positionsY[i]);
+              ecs.set_field(id, RegisteredPosition, "z", positionsZ[i]);
+              break;
             }
           }
         }

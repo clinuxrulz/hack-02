@@ -1,11 +1,10 @@
-import { createRoot } from "solid-js";
+import { createRoot, type Accessor } from "solid-js";
 import type { ReactiveECS } from "../ReactiveECS";
 import type { EntityID } from "@oasys/oecs";
 import {
   RegisteredPosition,
   RegisteredVelocity,
   RegisteredBallConfig,
-  RegisteredBoundary,
   RegisteredGravityAffected,
   RegisteredGlobalGravity,
   RegisteredPlayerConfig,
@@ -16,15 +15,15 @@ import { gameEvents } from "../Events";
 
 export function createBallPhysicsSystem(
   ecs: ReactiveECS,
+  hitPower: Accessor<number>,
+  hitTriggered: Accessor<boolean>,
 ): { update: (dt: number) => void; dispose: () => void } {
   return createRoot((dispose) => {
-    let wasAboveGround = true;
-    let lastHitPlayer: number | null = null;
     let hitCooldown = 0;
-    
-    const update = (deltaTime: number) => {
-      if (deltaTime === 0) return;
+    let lastHitPlayer = -1;
+    let wasAboveGround = true;
 
+    const update = (deltaTime: number) => {
       const gravity = ecs.resource(RegisteredGlobalGravity);
       
       if (hitCooldown > 0) {
@@ -32,7 +31,7 @@ export function createBallPhysicsSystem(
       }
 
       const ballUpdates: {
-        entityId: number;
+        entityId: EntityID;
         newPosX: number;
         newPosY: number;
         newPosZ: number;
@@ -41,7 +40,7 @@ export function createBallPhysicsSystem(
         newVelZ: number;
       }[] = [];
 
-      for (const arch of ecs.query(RegisteredPosition, RegisteredVelocity, RegisteredBallConfig, RegisteredBoundary, RegisteredGravityAffected)) {
+      for (const arch of ecs.query(RegisteredPosition, RegisteredVelocity, RegisteredBallConfig, RegisteredGravityAffected)) {
         const positionsX = arch.get_column(RegisteredPosition, "x");
         const positionsY = arch.get_column(RegisteredPosition, "y");
         const positionsZ = arch.get_column(RegisteredPosition, "z");
@@ -49,12 +48,6 @@ export function createBallPhysicsSystem(
         const velocitiesY = arch.get_column(RegisteredVelocity, "y");
         const velocitiesZ = arch.get_column(RegisteredVelocity, "z");
         const sizes = arch.get_column(RegisteredBallConfig, "size");
-        const minXs = arch.get_column(RegisteredBoundary, "minX");
-        const minYs = arch.get_column(RegisteredBoundary, "minY");
-        const minZs = arch.get_column(RegisteredBoundary, "minZ");
-        const maxXs = arch.get_column(RegisteredBoundary, "maxX");
-        const maxYs = arch.get_column(RegisteredBoundary, "maxY");
-        const maxZs = arch.get_column(RegisteredBoundary, "maxZ");
         const entityIds = arch.entity_ids;
 
         for (let i = 0; i < arch.entity_count; i++) {
@@ -62,7 +55,6 @@ export function createBallPhysicsSystem(
           const position = { x: positionsX[i], y: positionsY[i], z: positionsZ[i] };
           const velocity = { x: velocitiesX[i], y: velocitiesY[i], z: velocitiesZ[i] };
           const ballConfig = { size: sizes[i] };
-          const boundary = { minX: minXs[i], minY: minYs[i], minZ: minZs[i], maxX: maxXs[i], maxY: maxYs[i], maxZ: maxZs[i] };
 
           let newVelX = velocity.x;
           let newVelY = velocity.y;
@@ -78,20 +70,17 @@ export function createBallPhysicsSystem(
 
           const ballRadius = ballConfig.size * 0.5;
 
-          const minBoundaryX = boundary.minX + ballRadius;
-          const maxBoundaryX = boundary.maxX - ballRadius;
-          const minBoundaryY = boundary.minY + ballRadius;
-          const maxBoundaryY = boundary.maxY - ballRadius;
-          const minBoundaryZ = boundary.minZ + ballRadius;
-          const maxBoundaryZ = boundary.maxZ - ballRadius;
-          
-          const isNowOnGround = newPosY <= minBoundaryY;
-          
-          if (wasAboveGround && isNowOnGround && newVelY < 0) {
-            gameEvents.emit("ballBounce", { z: newPosZ, y: newPosY });
+          if (newPosY < ballRadius) {
+            newPosY = ballRadius;
+            newVelY = -newVelY * 0.7;
+            newVelZ = newVelZ * 0.7;
+            if (Math.abs(newVelY) < 0.3) newVelY = 0;
+            if (wasAboveGround) {
+              gameEvents.emit("ballBounce", { z: newPosZ, y: newPosY });
+            }
           }
-          wasAboveGround = !isNowOnGround;
-          
+          wasAboveGround = newPosY > ballRadius;
+
           const servingQuery = ecs.query(RegisteredServingState);
           let isInServingMode = false;
           if (servingQuery.archetypes.length > 0) {
@@ -117,22 +106,25 @@ export function createBallPhysicsSystem(
               const racketY = playerPosY + 0.5;
               const racketZ = playerPosZ + (facingForward === 1 ? -0.4 : 0.4);
               
-              const racketRadius = 0.6;
+              const racketRadius = 0.8;
               const dx = newPosX - racketX;
               const dy = newPosY - racketY;
               const dz = newPosZ - racketZ;
               const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
               
-              console.log(`Player ${playerType}: pos=(${playerPosX.toFixed(2)}, ${playerPosY.toFixed(2)}, ${playerPosZ.toFixed(2)}), racketSide=${racketSide}, racket=(${racketX.toFixed(2)}, ${racketY.toFixed(2)}, ${racketZ.toFixed(2)}), ball=(${newPosX.toFixed(2)}, ${newPosY.toFixed(2)}, ${newPosZ.toFixed(2)}), dist=${dist.toFixed(2)}`);
-              
-              if (dist < racketRadius + ballRadius) {
-                console.log(`HIT Player ${playerType}!`);
+// Increase hit distance to make it easier
+              if (dist < racketRadius + ballRadius + 0.3) {
                 const direction = playerType === 0 ? 1 : -1;
-                const movementInfluence = playerVelX * 3;
-                newVelX = dx * 2 + movementInfluence;
-                newVelY = 4;
-                newVelZ = direction * 10;
-                newPosY = racketY + racketRadius + ballRadius;
+                const movementInfluence = playerVelX * 0.5;
+                const power = 0.7;
+                const basePower = 1.0;
+                const powerScale = basePower + power * 0.5;
+                const hitX = racketX + dx * 0.5;
+                const hitY = racketY + 0.3;
+                newVelX = (newPosX - hitX) * 0.8 + movementInfluence;
+                newVelY = 4.5 * powerScale;
+                newVelZ = direction * 6.0 * powerScale;
+                newPosY = hitY + ballRadius;
                 hitCooldown = 0.3;
                 lastHitPlayer = playerType;
                 gameEvents.emit("ballHit", { player: playerType });
@@ -157,17 +149,17 @@ export function createBallPhysicsSystem(
                 const closestDz = closestZ - racketZ;
                 const closestDist = Math.sqrt(closestDx * closestDx + closestDy * closestDy + closestDz * closestDz);
                 
-                console.log(`  Ray check: closestDist=${closestDist.toFixed(2)}, racketRadius=${racketRadius}`);
-                
-                if (closestDist < racketRadius + ballRadius) {
-                  console.log(`RAY HIT Player ${playerType}!`);
+                if (closestDist < racketRadius + ballRadius + 0.3) {
                   const direction = playerType === 0 ? 1 : -1;
-                  const hitStrength = 1.0 - (closestDist / (racketRadius + ballRadius));
-                  const movementInfluence = playerVelX * 3;
-                  newVelX = (closestDx / closestDist) * 5 * hitStrength + movementInfluence;
-                  newVelY = 4;
-                  newVelZ = direction * 12;
-                  newPosY = Math.max(newPosY, racketY + racketRadius + ballRadius);
+                  const hitStrength = 1.0 - (closestDist / (racketRadius + ballRadius + 0.3));
+const movementInfluence = playerVelX * 0.5;
+                  const power = 0.7;
+                  const basePower = 1.0;
+                  const powerScale = basePower + power * 0.5;
+                  newVelX = (closestDx / closestDist) * 0.8 * hitStrength + movementInfluence;
+newVelY = 1.5 * powerScale;
+                  newVelZ = direction * 6.0 * powerScale;
+                  newPosY = Math.max(newPosY, racketY + racketRadius + ballRadius + 0.2);
                   hitCooldown = 0.3;
                   lastHitPlayer = playerType;
                   gameEvents.emit("ballHit", { player: playerType });
@@ -177,30 +169,6 @@ export function createBallPhysicsSystem(
             }
           }
 
-          if (newPosX < minBoundaryX) {
-            newPosX = minBoundaryX;
-            newVelX = -newVelX * 0.8;
-          } else if (newPosX > maxBoundaryX) {
-            newPosX = maxBoundaryX;
-            newVelX = -newVelX * 0.8;
-          }
-
-          if (newPosY < minBoundaryY) {
-            newPosY = minBoundaryY;
-            newVelY = -newVelY * 0.8;
-            if (Math.abs(newVelY) < 0.1) newVelY = 0;
-          } else if (newPosY > maxBoundaryY) {
-            newPosY = maxBoundaryY;
-            newVelY = -newVelY * 0.8;
-          }
-
-          if (newPosZ < minBoundaryZ) {
-            newPosZ = minBoundaryZ;
-            newVelZ = -newVelZ * 0.8;
-          } else if (newPosZ > maxBoundaryZ) {
-            newPosZ = maxBoundaryZ;
-            newVelZ = -newVelZ * 0.8;
-          }
           ballUpdates.push({ entityId, newPosX, newPosY, newPosZ, newVelX, newVelY, newVelZ });
         }
       }

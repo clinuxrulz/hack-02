@@ -3,7 +3,8 @@ import { type Accessor, createSignal, createMemo, createEffect, createRoot, type
 import type { ReactiveECS } from "./ReactiveECS";
 import * as THREE from "three";
 import { Joystick } from "./Joystick";
-import { JumpButton } from "./JumpButton";
+import { ActionButton } from "./ActionButton";
+import { PowerMeter } from "./PowerMeter";
 import { World, RegisteredDesiredMovement, RegisteredInputControlled, RegisteredAI, RegisteredServingState, RegisteredRacketSide } from "./World";
 import { Player } from "./Player";
 import { Court } from "./Court";
@@ -196,7 +197,7 @@ let [ upDown, setUpDown, ] = createSignal(false);
 let [ downDown, setDownDown, ] = createSignal(false);
 let [ leftDown, setLeftDown, ] = createSignal(false);
 let [ rightDown, setRightDown, ] = createSignal(false);
-let [ jumpDown, setJumpDown, ] = createSignal(false);
+let [ actionDown, setActionDown, ] = createSignal(false);
 
 function App() {
   debugger;
@@ -213,16 +214,31 @@ function App() {
     knobSize: () => 70,
   });
 
-  let jumpButtonSize = 80;
-  let jumpButton = JumpButton({
+  let actionButtonSize = 80;
+  let actionButton = ActionButton({
     position: createMemo(() =>
       new THREE.Vector2(
-        (canvasSize()?.x ?? 0) - 50 - jumpButtonSize,
-        (canvasSize()?.y ?? 0) - 50 - jumpButtonSize,
+        (canvasSize()?.x ?? 0) - 50 - actionButtonSize,
+        (canvasSize()?.y ?? 0) - 50 - actionButtonSize,
       )
     ),
-    size: () => jumpButtonSize,
+    size: () => actionButtonSize,
+    externalPressed: actionDown,
   });
+
+  let powerMeterWidth = 30;
+  let powerMeterHeight = 150;
+  let powerMeter = PowerMeter({
+    position: createMemo(() => ({
+      x: (canvasSize()?.x ?? 0) - 50 - powerMeterWidth,
+      y: (canvasSize()?.y ?? 0) - 50 - actionButtonSize - 20 - powerMeterHeight,
+    })),
+    width: () => powerMeterWidth,
+    height: () => powerMeterHeight,
+    power: actionButton.power,
+  });
+
+  let actionJustReleased = false;
 
   createEffect(
     () => aiVsAi(),
@@ -245,11 +261,11 @@ function App() {
   // Function to create and manage all systems
   const createGameSystems = (ecs: ReactiveECS, scene: THREE.Scene) => {
     const input = createInputProcessingSystem(ecs, upDown, downDown, leftDown, rightDown, joystick.value);
-    const jumpDownBoth = () => jumpDown() || jumpButton.pressed();
-    const player = createPlayerMovementSystem(ecs, jumpDownBoth);
-    const ball = createBallPhysicsSystem(ecs);
+    const actionPressed = () => actionDown() || actionButton.pressed();
+    const player = createPlayerMovementSystem(ecs);
+    const ball = createBallPhysicsSystem(ecs, actionButton.power, () => actionJustReleased);
     const render = createRenderSystem(ecs, scene);
-    const serving = createServingSystem(ecs, jumpDownBoth, () => (leftDown() ? -1 : 0) + (rightDown() ? 1 : 0) + joystick.value().x, () => (upDown() ? -1 : 0) + (downDown() ? 1 : 0));
+    const serving = createServingSystem(ecs, actionPressed, () => (leftDown() ? -1 : 0) + (rightDown() ? 1 : 0) + joystick.value().x, () => (upDown() ? -1 : 0) + (downDown() ? 1 : 0), actionButton.power, () => actionJustReleased);
     const tennisRules = createTennisRulesSystem(ecs, (p0, p1, server) => {
       setScoreP0(p0);
       setScoreP1(p1);
@@ -264,6 +280,8 @@ function App() {
 
     return {
       update: (dt: number) => {
+        actionJustReleased = actionButton.justReleased() || actionButton.justReleasedExternal();
+        
         input.update();
         ai.update(dt);
         player.update(dt);
@@ -373,7 +391,8 @@ function App() {
     />
     <ScoreBoard />
     <joystick.UI/>
-    <jumpButton.UI/>
+    <actionButton.UI/>
+    <powerMeter.UI/>
   </>);
 }
 
@@ -405,7 +424,7 @@ document.addEventListener("keydown", (e) => {
       setRightDown(true);
       break;
     case " ":
-      setJumpDown(true);
+      setActionDown(true);
       break;
   }
 });
@@ -425,7 +444,7 @@ document.addEventListener("keyup", (e) => {
       setRightDown(false);
       break;
     case " ":
-      setJumpDown(false);
+      setActionDown(false);
       break;
   }
 });

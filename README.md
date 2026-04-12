@@ -31,8 +31,8 @@ Traditional ECS (Entity Component System) is a popular architecture for games, b
 - **Two Players**: Human (Melty) vs AI (Cubey)
 - **Tennis Scoring**: Traditional 0, 15, 30, 40, ADV system
 - **Controls**: 
-  - Keyboard: Arrow keys to move, Space to jump
-  - Touch: On-screen joystick and jump button for mobile
+  - Keyboard: Arrow keys to move, Space to charge power hit (release to hit)
+  - Touch: On-screen joystick and action button for mobile
 - **Procedural Sound**: Generated audio for ball bounces
 
 ## Architecture

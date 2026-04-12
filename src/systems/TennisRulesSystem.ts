@@ -125,6 +125,13 @@ export function createTennisRulesSystem(
 
     gameEvents.on("ballBounce", handleBallBounce);
     
+    const handleBallHit = () => {
+      bounceCountP0 = 0;
+      bounceCountP1 = 0;
+      lastBounceSide = null;
+    };
+    gameEvents.on("ballHit", handleBallHit);
+    
     const resetBall = (ecs: ReactiveECS, oldServer: number, newServer: number, p0Score: number, p1Score: number) => {
       const playerQuery = ecs.query(RegisteredPosition, RegisteredPlayerConfig);
       let serverPos = { x: 0, y: 0, z: 0 };
@@ -192,6 +199,9 @@ export function createTennisRulesSystem(
       
       const ballPos = { x: positionsX[0], y: positionsY[0], z: positionsZ[0] };
       const ballVel = { x: velocitiesX[0], y: velocitiesY[0], z: velocitiesZ[0] };
+      if (ballVel.x === 0 && ballVel.y === 0 && ballVel.z === 0) {
+        console.log(`BALL STATIONARY at (${ballPos.x.toFixed(1)}, ${ballPos.y.toFixed(1)}, ${ballPos.z.toFixed(1)})`);
+      }
       
       if (ballPos.z < -COURT_LENGTH / 2 - 0.5 || ballPos.z > COURT_LENGTH / 2 + 0.5 ||
           ballPos.x < -COURT_WIDTH / 2 - 0.5 || ballPos.x > COURT_WIDTH / 2 + 0.5) {

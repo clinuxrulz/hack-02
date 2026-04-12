@@ -12,11 +12,11 @@ import {
   RegisteredRacketSide,
   RegisteredInputControlled,
   RegisteredAI,
+  RegisteredBallConfig,
 } from "../World";
 
 export function createPlayerMovementSystem(
   ecs: ReactiveECS,
-  jumpDown: Accessor<boolean>,
 ): { update: (dt: number) => void; dispose: () => void } {
   return createRoot((dispose) => {
     const update = (deltaTime: number) => {
@@ -41,6 +41,21 @@ export function createPlayerMovementSystem(
         serverPlayer = serverPlayers[0];
         inServingPhase = phases[0] !== 2;
         serverCantMove = phases[0] === SERVE_PHASE_BALL_THROWN;
+      }
+
+      let ballPos = { x: 0, y: 0, z: 0 };
+      let ballVel = { x: 0, y: 0, z: 0 };
+      const ballQuery = ecs.query(RegisteredPosition, RegisteredVelocity, RegisteredBallConfig);
+      if (ballQuery.archetypes.length > 0) {
+        const ballArch = ballQuery.archetypes[0];
+        const ballPositionsX = ballArch.get_column(RegisteredPosition, "x");
+        const ballPositionsY = ballArch.get_column(RegisteredPosition, "y");
+        const ballPositionsZ = ballArch.get_column(RegisteredPosition, "z");
+        const ballVelocitiesX = ballArch.get_column(RegisteredVelocity, "x");
+        const ballVelocitiesY = ballArch.get_column(RegisteredVelocity, "y");
+        const ballVelocitiesZ = ballArch.get_column(RegisteredVelocity, "z");
+        ballPos = { x: ballPositionsX[0], y: ballPositionsY[0], z: ballPositionsZ[0] };
+        ballVel = { x: ballVelocitiesX[0], y: ballVelocitiesY[0], z: ballVelocitiesZ[0] };
       }
 
       const processArchetype = (arch: any, isInputControlled: boolean) => {
@@ -76,9 +91,11 @@ export function createPlayerMovementSystem(
           let currentRacketSide = racketSides[i];
           
           if (!(serverCantMove && isServer)) {
-            const speed = 7.0;
+            const speed = 5.25;
             newPosX += desiredMovement.x * speed * deltaTime;
             newPosZ += desiredMovement.z * speed * deltaTime;
+            newVelX = desiredMovement.x * speed;
+            newVelZ = desiredMovement.z * speed;
             
             if (desiredMovement.x > 0.1) {
               currentRacketSide = -1;
@@ -87,13 +104,12 @@ export function createPlayerMovementSystem(
             }
           }
 
-          if (!inServingPhase && newPosY <= 0.0) {
-            if (isInputControlled && jumpDown()) {
-              newVelY = 5.0;
-            } else if (!isInputControlled && desiredMovement.jump === 1) {
-              newVelY = 5.0;
-            }
-          } else if (newPosY > 0.0) {
+          const dx = ballPos.x - position.x;
+          const dz = ballPos.z - position.z;
+          const distXY = Math.sqrt(dx * dx + dz * dz);
+          const ptype = playerConfig.playerType;
+          // Only manual action button triggers jump
+          if (newPosY > 0.0) {
             newVelY += gravity.get("y") * deltaTime;
           }
 

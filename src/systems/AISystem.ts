@@ -88,20 +88,22 @@ function computeRuleBasedMovement(
         moveZ = playerType === 0 ? -1 : 1;
       }
     } else {
-      const targetZ = ballPos.z + (playerType === 0 ? -0.8 : 0.8);
+      const targetZ = ballPos.z + (playerType === 0 ? -0.5 : 0.5);
       const zDiff = targetZ - playerZ;
       if (Math.abs(zDiff) > 0.2) {
         moveZ = zDiff > 0 ? 1 : -1;
       }
     }
   } else if (ballGoingAway) {
-    const idealDefenseZ = playerType === 0 ? -6 : 6;
+    // Stay closer to baseline, don't chase too far
+    const idealDefenseZ = playerType === 0 ? -4 : 4;
     const zDiff = idealDefenseZ - playerZ;
     if (Math.abs(zDiff) > 0.3) {
       moveZ = zDiff > 0 ? 1 : -1;
     }
   } else {
-    const idealZ = playerType === 0 ? -2 : 2;
+    // Stay at ready position
+    const idealZ = playerType === 0 ? -3 : 3;
     const zDiff = idealZ - playerZ;
     if (Math.abs(zDiff) > 0.3) {
       moveZ = zDiff > 0 ? 1 : -1;
@@ -222,8 +224,7 @@ export function createAISystem(
                 const dx = ballPos.x - positionsX[i];
                 const dz = ballPos.z - positionsZ[i];
                 const dist = Math.sqrt(dx * dx + dz * dz);
-
-                if (dist < 0.5 && ballVel.y < 1.0 && ballPos.y > 1.5) {
+                if (dist < 0.5 && ballPos.y > 0.5 && ballPos.y < 3.0) {
                   if (servingEntityId) {
                     ecs.set_field(servingEntityId, RegisteredServingState, "phase", SERVE_PHASE_BALL_HIT);
 
