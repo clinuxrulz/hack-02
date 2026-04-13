@@ -7,7 +7,7 @@ export default defineConfig({
     headless: true,
   },
   webServer: {
-    command: 'pnpm run start',
+    command: 'pnpm run dev',
     port: 3000,
     reuseExistingServer: true,
   },
