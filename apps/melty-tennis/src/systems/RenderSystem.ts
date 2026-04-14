@@ -9,6 +9,8 @@ import {
   RegisteredBallConfig,
   RegisteredRacketSide,
 } from "../World";
+import { createMelty } from "../models/melty";
+import { createCubey } from "../models/cubey";
 
 export function createRenderSystem(ecs: ReactiveECS, scene: THREE.Scene): { update: () => void; dispose: () => void } {
   return createRoot((dispose) => {
@@ -30,46 +32,14 @@ export function createRenderSystem(ecs: ReactiveECS, scene: THREE.Scene): { upda
         let playerConfig = { playerType: playerEntity.getField(RegisteredPlayerConfig, "playerType"), facingForward: playerEntity.getField(RegisteredPlayerConfig, "facingForward") };
         
         let group = new THREE.Group();
-        let chinMesh: THREE.Mesh;
-        let headMesh: THREE.Mesh;
-        let outsideTeethMesh: THREE.Mesh[] = [];
-        let middleToothMesh: THREE.Mesh;
-        let eyesMesh: THREE.Mesh[] = [];
 
-        const normalMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000 });
-        const standardMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-
-        const chinGeometry = new THREE.BoxGeometry(0.5, 0.2, 0.5);
-        chinMesh = new THREE.Mesh(chinGeometry, normalMaterial);
-        chinMesh.position.set(0.0, 0.1, 0.0);
-
-        const headGeometry = new THREE.BoxGeometry(0.5, 0.25, 0.5);
-        headMesh = new THREE.Mesh(headGeometry, normalMaterial);
-        headMesh.position.set(0.0, 0.45, 0.0);
-
-        const toothGeometry = new THREE.BoxGeometry(0.1, 0.2, 0.1);
-        const leftTooth = new THREE.Mesh(toothGeometry, standardMaterial);
-        const rightTooth = new THREE.Mesh(toothGeometry, standardMaterial);
-        leftTooth.position.set(-0.14, 0.3, 0.3);
-        rightTooth.position.set(0.14, 0.3, 0.3);
-        outsideTeethMesh = [leftTooth, rightTooth];
-
-        const middleToothGeometry = new THREE.BoxGeometry(0.1, 0.4, 0.1);
-        middleToothMesh = new THREE.Mesh(middleToothGeometry, standardMaterial);
-        middleToothMesh.position.set(0.0, 0.3, 0.3);
-
-        const eyeGeometry = new THREE.SphereGeometry(0.08);
-        const leftEyeMesh = new THREE.Mesh(eyeGeometry, standardMaterial);
-        const rightEyeMesh = new THREE.Mesh(eyeGeometry, standardMaterial);
-        leftEyeMesh.position.set(-0.15, 0.48, 0.25);
-        rightEyeMesh.position.set(0.15, 0.48, 0.25);
-        eyesMesh = [leftEyeMesh, rightEyeMesh];
-
-        group.add(chinMesh);
-        group.add(headMesh);
-        outsideTeethMesh.forEach((m) => group.add(m));
-        group.add(middleToothMesh);
-        eyesMesh.forEach((m) => group.add(m));
+        if (playerConfig.playerType == 0) {
+          let cubey = createCubey();
+          group.add(cubey);
+        } else {
+          let melty = createMelty();
+          group.add(melty);
+        }
 
         const racketGroup = new THREE.Group();
         const racketMaterial = new THREE.MeshStandardMaterial({ color: 0x8B4513 });
@@ -105,16 +75,9 @@ export function createRenderSystem(ecs: ReactiveECS, scene: THREE.Scene): { upda
         onCleanup(() => {
           scene.remove(group);
           scene.remove(playerShadowMesh);
-          chinGeometry.dispose();
-          headGeometry.dispose();
-          toothGeometry.dispose();
-          middleToothGeometry.dispose();
-          eyeGeometry.dispose();
           handleGeometry.dispose();
           racketFaceGeometry.dispose();
           playerShadowGeometry.dispose();
-          normalMaterial.dispose();
-          standardMaterial.dispose();
           racketMaterial.dispose();
           playerShadowMaterial.dispose();
         });

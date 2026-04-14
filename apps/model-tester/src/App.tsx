@@ -1,19 +1,37 @@
-import { createSignal, onCleanup, onSettled, type Component } from "solid-js";
+import { Accessor, createMemo, createEffect, createSignal, createStore, onCleanup, onSettled, type Component } from "solid-js";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/Addons.js";
+import { createCubeyModelHMR, createMeltyModelHMR } from "./model-tester";
 
 const App: Component = () => {
+  let [ state, setState, ] = createStore<{
+    model: "Melty" | "Cubey",
+  }>({
+    model: "Melty",
+  });
   let [ canvasDiv, setCanvasDiv, ] = createSignal<HTMLDivElement>();
   let [ canvas, setCanvas, ] = createSignal<HTMLCanvasElement>();
   let [ renderer, setRenderer, ] = createSignal<THREE.WebGLRenderer>();
   let [ camera, setCamera, ] = createSignal<THREE.PerspectiveCamera>();
   let [ orbitControls, setOrbitControls, ] = createSignal<OrbitControls>();
   let scene = new THREE.Scene();
+  // lights
   {
-    let geometry = new THREE.BoxGeometry();
-    let material = new THREE.MeshNormalMaterial();
-    let mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
+    // Ambient light (soft, overall light)
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    // Directional light (sun-like light)
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 10, 7);
+    scene.add(directionalLight);
+  }
+  // Grid helper and axes
+  {
+    let gridHelper = new THREE.GridHelper(6.0, 6);
+    gridHelper.translateY(-0.001);
+    scene.add(gridHelper);
+    let axesHelper = new THREE.AxesHelper(1.5);
+    scene.add(axesHelper);
   }
   let rerender = (() => {
     let aboutToRender = false;
@@ -82,6 +100,34 @@ const App: Component = () => {
       cleanups.splice(0, cleanups.length);
     };
   });
+  {
+    let meltyModel = createMeltyModelHMR();
+    let cubeyModel = createCubeyModelHMR();
+    createMemo(() => {
+      let model: Accessor<THREE.Object3D | undefined>;
+      switch (state.model) {
+        case "Melty":
+          model = meltyModel;
+          break;
+        case "Cubey":
+          model = cubeyModel;
+          break;
+      }
+      createEffect(
+        model,
+        (model) => {
+          if (model == undefined) {
+            return undefined;
+          }
+          scene.add(model);
+          rerender();
+          return () => {
+            scene.remove(model);
+          };
+        },
+      );
+    });
+  }
   return (
     <div
       ref={setCanvasDiv}
@@ -93,6 +139,24 @@ const App: Component = () => {
       }}
     >
       <canvas ref={setCanvas}/>
+      <select
+        style={{
+          "position": "absolute",
+          "left": "5px",
+          "top": "5px",
+        }}
+        onChange={(e) => {
+          if (e.currentTarget.selectedOptions.length != 1) {
+            return;
+          }
+          setState((s) => {
+            s.model = e.currentTarget.selectedOptions[0].value as any;
+          });
+        }}
+      >
+        <option value="Melty" selected={state.model == "Melty"}>Melty</option>
+        <option value="Cubey" selected={state.model == "Cubey"}>Cubey</option>
+      </select>
     </div>
   );
 };

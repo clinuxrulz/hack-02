@@ -93,77 +93,87 @@ export function createBallPhysicsSystem(
           
           if (hitCooldown <= 0 && !isInServingMode) {
             for (const playerArch of ecs.query(RegisteredPosition, RegisteredVelocity, RegisteredPlayerConfig, RegisteredRacketSide)) {
-              const playerPosX = playerArch.get_column(RegisteredPosition, "x")[0];
-              const playerPosY = playerArch.get_column(RegisteredPosition, "y")[0];
-              const playerPosZ = playerArch.get_column(RegisteredPosition, "z")[0];
-              const playerVelX = playerArch.get_column(RegisteredVelocity, "x")[0];
-              const playerType = playerArch.get_column(RegisteredPlayerConfig, "playerType")[0];
-              const facingForward = playerArch.get_column(RegisteredPlayerConfig, "facingForward")[0];
-              const racketSide = playerArch.get_column(RegisteredRacketSide, "side")[0];
-              
-              const racketOffsetX = racketSide * 0.5;
-              const racketX = playerPosX + racketOffsetX;
-              const racketY = playerPosY + 0.5;
-              const racketZ = playerPosZ + (facingForward === 1 ? -0.4 : 0.4);
-              
-              const racketRadius = 0.8;
-              const dx = newPosX - racketX;
-              const dy = newPosY - racketY;
-              const dz = newPosZ - racketZ;
-              const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-              
+              const playerPosX = playerArch.get_column(RegisteredPosition, "x");
+              const playerPosY = playerArch.get_column(RegisteredPosition, "y");
+              const playerPosZ = playerArch.get_column(RegisteredPosition, "z");
+              const playerVelX = playerArch.get_column(RegisteredVelocity, "x");
+              const playerTypeCol = playerArch.get_column(RegisteredPlayerConfig, "playerType");
+              const facingForwardCol = playerArch.get_column(RegisteredPlayerConfig, "facingForward");
+              const racketSideCol = playerArch.get_column(RegisteredRacketSide, "side");
+
+              for (let j = 0; j < playerArch.entity_count; j++) {
+                const playerPosXx = playerPosX[j];
+                const playerPosYy = playerPosY[j];
+                const playerPosZz = playerPosZ[j];
+                const playerVelXx = playerVelX[j];
+                const playerType = playerTypeCol[j];
+                const facingForward = facingForwardCol[j];
+                const racketSide = racketSideCol[j];
+
+                const racketOffsetX = racketSide * 0.5;
+                const racketX = playerPosXx + racketOffsetX;
+                const racketY = playerPosYy + 0.5;
+                const racketZ = playerPosZz + (facingForward === 1 ? -0.4 : 0.4);
+
+                const racketRadius = 0.8;
+                const dx = newPosX - racketX;
+                const dy = newPosY - racketY;
+                const dz = newPosZ - racketZ;
+                const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
 // Increase hit distance to make it easier
-              if (dist < racketRadius + ballRadius + 0.3) {
-                const direction = playerType === 0 ? 1 : -1;
-                const movementInfluence = playerVelX * 0.5;
-                const power = 0.7;
-                const basePower = 1.0;
-                const powerScale = basePower + power * 0.5;
-                const hitX = racketX + dx * 0.5;
-                const hitY = racketY + 0.3;
-                newVelX = (newPosX - hitX) * 0.8 + movementInfluence;
-                newVelY = 4.5 * powerScale;
-                newVelZ = direction * 6.0 * powerScale;
-                newPosY = hitY + ballRadius;
-                hitCooldown = 0.3;
-                lastHitPlayer = playerType;
-                gameEvents.emit("ballHit", { player: playerType });
-                break;
-              }
-              
-              const rayDx = newPosX - position.x;
-              const rayDy = newPosY - position.y;
-              const rayDz = newPosZ - position.z;
-              const rayLen = Math.sqrt(rayDx * rayDx + rayDy * rayDy + rayDz * rayDz);
-              
-              if (rayLen > 0.01) {
-                const t = Math.max(0, Math.min(1, 
-                  ((racketX - position.x) * rayDx + (racketY - position.y) * rayDy + (racketZ - position.z) * rayDz) / (rayLen * rayLen)
-                ));
-                const closestX = position.x + t * rayDx;
-                const closestY = position.y + t * rayDy;
-                const closestZ = position.z + t * rayDz;
-                
-                const closestDx = closestX - racketX;
-                const closestDy = closestY - racketY;
-                const closestDz = closestZ - racketZ;
-                const closestDist = Math.sqrt(closestDx * closestDx + closestDy * closestDy + closestDz * closestDz);
-                
-                if (closestDist < racketRadius + ballRadius + 0.3) {
+                if (dist < racketRadius + ballRadius + 0.3) {
                   const direction = playerType === 0 ? 1 : -1;
-                  const hitStrength = 1.0 - (closestDist / (racketRadius + ballRadius + 0.3));
-const movementInfluence = playerVelX * 0.5;
+                  const movementInfluence = playerVelXx * 0.5;
                   const power = 0.7;
                   const basePower = 1.0;
                   const powerScale = basePower + power * 0.5;
-                  newVelX = (closestDx / closestDist) * 0.8 * hitStrength + movementInfluence;
-newVelY = 1.5 * powerScale;
+                  const hitX = racketX + dx * 0.5;
+                  const hitY = racketY + 0.3;
+                  newVelX = (newPosX - hitX) * 0.8 + movementInfluence;
+                  newVelY = 4.5 * powerScale;
                   newVelZ = direction * 6.0 * powerScale;
-                  newPosY = Math.max(newPosY, racketY + racketRadius + ballRadius + 0.2);
+                  newPosY = hitY + ballRadius;
                   hitCooldown = 0.3;
                   lastHitPlayer = playerType;
                   gameEvents.emit("ballHit", { player: playerType });
                   break;
+                }
+
+                const rayDx = newPosX - position.x;
+                const rayDy = newPosY - position.y;
+                const rayDz = newPosZ - position.z;
+                const rayLen = Math.sqrt(rayDx * rayDx + rayDy * rayDy + rayDz * rayDz);
+
+                if (rayLen > 0.01) {
+                  const t = Math.max(0, Math.min(1,
+                    ((racketX - position.x) * rayDx + (racketY - position.y) * rayDy + (racketZ - position.z) * rayDz) / (rayLen * rayLen)
+                  ));
+                  const closestX = position.x + t * rayDx;
+                  const closestY = position.y + t * rayDy;
+                  const closestZ = position.z + t * rayDz;
+
+                  const closestDx = closestX - racketX;
+                  const closestDy = closestY - racketY;
+                  const closestDz = closestZ - racketZ;
+                  const closestDist = Math.sqrt(closestDx * closestDx + closestDy * closestDy + closestDz * closestDz);
+
+                  if (closestDist < racketRadius + ballRadius + 0.3) {
+                    const direction = playerType === 0 ? 1 : -1;
+                    const hitStrength = 1.0 - (closestDist / (racketRadius + ballRadius + 0.3));
+                    const movementInfluence = playerVelXx * 0.5;
+                    const power = 0.7;
+                    const basePower = 1.0;
+                    const powerScale = basePower + power * 0.5;
+                    newVelX = (closestDx / closestDist) * 0.8 * hitStrength + movementInfluence;
+                    newVelY = 1.5 * powerScale;
+                    newVelZ = direction * 6.0 * powerScale;
+                    newPosY = Math.max(newPosY, racketY + racketRadius + ballRadius + 0.2);
+                    hitCooldown = 0.3;
+                    lastHitPlayer = playerType;
+                    gameEvents.emit("ballHit", { player: playerType });
+                    break;
+                  }
                 }
               }
             }
