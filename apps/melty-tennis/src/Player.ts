@@ -1,6 +1,6 @@
 import { type Accessor, createEffect, createSignal,  onCleanup, type Signal } from "solid-js";
 import * as THREE from "three";
-import type { ReactiveECS } from "./ReactiveECS";
+import type { ReactiveECS } from "@melty-tennis/reactive-ecs";
 import type { EntityID } from "@oasys/oecs";
 import { RegisteredPosition, RegisteredVelocity, RegisteredPlayerConfig } from "./World";
 import { PlayerTypeEnum } from "./components";

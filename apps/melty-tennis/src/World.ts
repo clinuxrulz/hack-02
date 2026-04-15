@@ -1,5 +1,5 @@
 import { ECS } from "@oasys/oecs";
-import { ReactiveECS } from "./ReactiveECS";
+import { ReactiveECS } from "@melty-tennis/reactive-ecs";
 import {
   Position,
   Velocity,

@@ -1,5 +1,5 @@
 import { createRoot, createSignal } from "solid-js";
-import type { ReactiveECS } from "../ReactiveECS";
+import type { ReactiveECS } from "@melty-tennis/reactive-ecs";
 import type { EntityID } from "@oasys/oecs";
 import {
   RegisteredPosition,

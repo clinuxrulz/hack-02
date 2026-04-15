@@ -1,6 +1,6 @@
 import { render } from '@solidjs/web';
 import { type Accessor, createSignal, createMemo, createEffect, createRoot, type Signal, untrack, onCleanup, For } from 'solid-js';
-import type { ReactiveECS } from "./ReactiveECS";
+import type { ReactiveECS } from "@melty-tennis/reactive-ecs";
 import * as THREE from "three";
 import { Joystick } from "./Joystick";
 import { ActionButton } from "./ActionButton";

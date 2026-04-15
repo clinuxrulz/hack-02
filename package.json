@@ -15,5 +15,13 @@
     "build:model": "pnpm --filter @melty-tennis/model-tester build",
     "serve:model": "pnpm --filter @melty-tennis/model-tester serve",
     "test:model": "pnpm --filter @melty-tennis/model-tester test"
+  },
+  "dependencies": {
+    "@solidjs/web": "2.0.0-beta.5",
+    "babel-preset-solid": "2.0.0-beta.5",
+    "solid-js": "2.0.0-beta.5"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1"
   }
 }
