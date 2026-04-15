@@ -6,7 +6,7 @@ export async function loadKartModel(): Promise<THREE.Group> {
   const loader = new OBJLoader();
   
   try {
-    const response = await fetch("./models/car-kart-red.obj");
+    const response = await fetch("./models/kart.obj");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const text = await response.text();
     
@@ -19,26 +19,18 @@ export async function loadKartModel(): Promise<THREE.Group> {
         
         if (child.material instanceof THREE.Material) {
           const mat = child.material as THREE.MeshStandardMaterial;
-          if (mat.name?.includes("red")) {
-            mat.color.setHex(0xcc2233);
-            mat.roughness = 0.4;
-            mat.metalness = 0.3;
-          } else if (mat.name?.includes("black")) {
-            mat.color.setHex(0x111111);
-            mat.roughness = 0.8;
-          } else if (mat.name?.includes("metal")) {
-            mat.color.setHex(0x888888);
-            mat.roughness = 0.3;
-            mat.metalness = 0.8;
-          } else if (mat.name?.includes("tires")) {
-            mat.color.setHex(0x222222);
-            mat.roughness = 0.9;
-          } else if (mat.name?.includes("windows")) {
-            mat.color.setHex(0x334466);
-            mat.roughness = 0.1;
+          if (mat.name?.includes("Blue")) {
+            mat.color.setHex(0x3a6ea5);
+            mat.roughness = 0.5;
             mat.metalness = 0.2;
-            (mat as any).transparent = true;
-            (mat as any).opacity = 0.7;
+          } else if (mat.name?.includes("Grey")) {
+            const greyMatch = mat.name.match(/Grey_-_(\d+)/);
+            if (greyMatch) {
+              const greyLevel = parseInt(greyMatch[1]) / 100;
+              mat.color.setRGB(greyLevel, greyLevel, greyLevel);
+            }
+            mat.roughness = 0.7;
+            mat.metalness = 0.3;
           }
         }
       }
