@@ -1,4 +1,4 @@
-export const DEGREE = 3;
+export const DEGREE = 12;
 export const OUT_LEN = DEGREE;
 
 export class Fn {

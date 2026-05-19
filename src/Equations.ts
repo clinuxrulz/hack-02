@@ -60,7 +60,7 @@ export class Equations {
 
   extractVars(out_vars: number[]): boolean {
     if (out_vars.length != this.rows.length) {
-      throw new Error("Size mismatch");
+      return false;
     }
     for (let i = 0; i < this.rows.length; ++i) {
       if (Math.abs(this.rows[i][i] - 1.0) > 0.0001) {
