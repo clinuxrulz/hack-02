@@ -1,4 +1,4 @@
-export const DEGREE = 4;
+export const DEGREE = 3;
 export const OUT_LEN = DEGREE;
 
 export class Fn {
@@ -8,7 +8,18 @@ export class Fn {
     }
     let k = 0;
     for (let i = 0; i < DEGREE; ++i) {
-      out[k++] = Math.pow(t, i);
+      out[k++] = Math.cos(t * i * 2.0 * Math.PI);
     }
+  }
+
+  evalVars(t: number, vars: number[]): number {
+    if (vars.length !== OUT_LEN) {
+      throw new Error("out wrong size");
+    }
+    let result = 0.0;
+    for (let i = 0; i < DEGREE; ++i) {
+      result += vars[i] * Math.cos(t * i * 2.0 * Math.PI);
+    }
+    return result;
   }
 }

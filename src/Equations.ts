@@ -57,4 +57,25 @@ export class Equations {
       ++minI;
     }
   }
+
+  extractVars(out_vars: number[]): boolean {
+    if (out_vars.length != this.rows.length) {
+      throw new Error("Size mismatch");
+    }
+    for (let i = 0; i < this.rows.length; ++i) {
+      if (Math.abs(this.rows[i][i] - 1.0) > 0.0001) {
+        return false;
+      }
+      for (let k = 0; k < this.rows[i].length-1; ++k) {
+        if (k === i) {
+          continue;
+        }
+        if (Math.abs(this.rows[i][k]) > 0.0001) {
+          return false;
+        }
+      }
+      out_vars[i] = this.rows[i][this.rows[i].length-1];
+    }
+    return true;
+  }
 }
