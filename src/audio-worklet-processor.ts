@@ -11,7 +11,7 @@ class MyAudioWorkletProcessor extends AudioWorkletProcessor {
     super();
     this.frequency = 440;
     this.phase = 0;
-    this.port.addEventListener("message", (e) => {
+    this.port.onmessage = (e) => {
       let params = e.data.params;
       switch (e.data.type) {
         case "setVars": {
@@ -20,7 +20,7 @@ class MyAudioWorkletProcessor extends AudioWorkletProcessor {
           break;
         }
       }
-    });
+    };
   }
 
   process(
