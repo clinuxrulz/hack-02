@@ -120,7 +120,7 @@ const App: Component = () => {
   //
   let [ state, setState, ] = createStore<{
     audioCtx: AudioContext | undefined,
-    audioNode: AudioNode | undefined,
+    audioNode: AudioWorkletNode | undefined,
   }>({
     audioCtx: undefined,
     audioNode: undefined,
@@ -137,6 +137,15 @@ const App: Component = () => {
       return;
     }
     audioCtx.resume();
+    let audioNode = state.audioNode;
+    if (audioNode !== undefined) {
+      audioNode.port.postMessage({
+        type: "setVars",
+        params: {
+          vars: rhsVars,
+        },
+      });
+    }
   })
   //
   return (
