@@ -1,6 +1,23 @@
-import { createMemo, For, Show, type Component } from 'solid-js';
+import { batch, createMemo, For, Show, type Component } from 'solid-js';
 import { Fn, OUT_LEN } from './Fn';
 import { Equations } from './Equations';
+import myAudioWorkletProcessorUrl from "./audio-worklet-processor?worker&url";
+import { createStore } from 'solid-js/store';
+
+async function setupAudio(): Promise<{
+  audioCtx: AudioContext,
+  audioNode: AudioWorkletNode,
+}> {
+  let audioCtx = new AudioContext();
+  await audioCtx.audioWorklet.addModule(myAudioWorkletProcessorUrl);
+  let audioNode = new AudioWorkletNode(audioCtx, "my-audio-worklet-processor");
+  audioNode.connect(audioCtx.destination);
+  //await audioCtx.resume();
+  return {
+    audioCtx,
+    audioNode,
+  };
+}
 
 const data =
 {
@@ -100,6 +117,28 @@ const App: Component = () => {
     rhsGraphPath = graphPath;
     rhsSampleMarkers = sampleMarkers;
   }
+  //
+  let [ state, setState, ] = createStore<{
+    audioCtx: AudioContext | undefined,
+    audioNode: AudioNode | undefined,
+  }>({
+    audioCtx: undefined,
+    audioNode: undefined,
+  });
+  setupAudio().then(({ audioCtx, audioNode }) => {
+    batch(() => {
+      setState("audioCtx", audioCtx);
+      setState("audioNode", audioNode);
+    });
+  });
+  document.addEventListener("click", () => {
+    let audioCtx = state.audioCtx;
+    if (audioCtx === undefined) {
+      return;
+    }
+    audioCtx.resume();
+  })
+  //
   return (
     <>
       <div
