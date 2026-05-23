@@ -32,11 +32,16 @@ class MyAudioWorkletProcessor extends AudioWorkletProcessor {
     output.forEach((channel) => {
       for (let i = 0; i < channel.length; i++) {
         if (this.vars !== undefined) {
-          let speed = 1.0 / 20.0;
-          let ofs = 0.5 / 12.0;
-          let s = (0.5 / 12.0) * 0.2;
+          let speed = 1.0 / 10.0;
+          let t = this.time * speed;
+          t %= 0.510;
+          t *= 13.0 / 0.5;
+          t = Math.ceil(t);
+          t /= 13.0 / 0.5;
+          let ofs = 0.0 * 1.0 / 13.0;
+          let s = (1.0 / 13.0);
           let note = fn.evalVars(
-            Math.floor((((this.time * speed) + ofs) % 0.501) / s) * s,
+            t,
             this.vars
           );
           let freq = 261.63 * Math.pow(2.0, note / 12.0);
